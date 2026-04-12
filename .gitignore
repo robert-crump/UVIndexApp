@@ -1,0 +1,56 @@
+# Built application files
+*.apk
+*.aab
+*.ap_
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration (SDK path — do NOT commit)
+local.properties
+
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+
+# Keystore files
+*.jks
+*.keystore
+*.p12
+
+# Google Services (API keys)
+google-services.json
+
+# NDK
+obj/
+
+# Signing configs
+.signing/
+
+# Claude Code local project config
+.claude/
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# SVG source files (design assets not needed in repo)
+*.svg

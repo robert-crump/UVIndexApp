@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_max_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@drawable/widget_max_background">
+
+    <!-- Header -->
+    <TextView
+        android:id="@+id/widget_max_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Max."
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:gravity="center" />
+
+    <!-- UV Max Zahl -->
+    <TextView
+        android:id="@+id/widget_max_uv_value"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="-"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="#999999"
+        android:gravity="center" />
+
+    <!-- Stunde -->
+    <TextView
+        android:id="@+id/widget_max_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="--:--"
+        android:textSize="10sp"
+        android:textColor="#666666"
+        android:gravity="center" />
+
+</LinearLayout>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#1976D2</color>
+    <color name="primary_container">#BBDEFB</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+
+    <!-- UV Index Colors -->
+    <color name="green_good_uv">#4BFFC5</color>
+    <color name="green_good_uv_background">#194234</color>
+    <color name="yellow_moderate_uv">#FFBD34</color>
+    <color name="yellow_moderate_uv_background">#5A380A</color>
+    <color name="orange_high_uv">#DF7500</color>
+    <color name="orange_high_uv_background">#592B0A</color>
+    <color name="red_very_high_uv">#F32D1F</color>
+    <color name="red_very_high_uv_background">#511D12</color>
+</resources>

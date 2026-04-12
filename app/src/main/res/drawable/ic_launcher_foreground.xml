@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Sonne (zentriert und skaliert mit Padding) -->
+    <!-- Original viewBox war 302x303, zentriert bei etwa 2200,1237 -->
+    <!-- Neue Zentrierung: 54,54 mit Skalierung für Padding -->
+
+    <group
+        android:translateX="54"
+        android:translateY="54"
+        android:scaleX="0.11"
+        android:scaleY="0.11"
+        android:pivotX="0"
+        android:pivotY="0">
+
+        <!-- Linker horizontaler Strahl -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-151,-10.5 l62,0 0,21 -62,0 z"/>
+
+        <!-- Rechter horizontaler Strahl -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M89,-10.5 l62,0 0,21 -62,0 z"/>
+
+        <!-- Sonnenkreis (Zentrum) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M76,0 C76,41.97 41.97,76 0,76 -41.97,76 -76,41.97 -76,0 -76,-41.97 -41.97,-76 0,-76 41.97,-76 76,-41.97 76,0 Z"/>
+
+        <!-- Unterer vertikaler Strahl -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-10,89.5 l20,0 0,62 -20,0 z"/>
+
+        <!-- Oberer vertikaler Strahl -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-10,-151.5 l20,0 0,62 -20,0 z"/>
+
+        <!-- Diagonaler Strahl links unten -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-56.08,70.31 l-43.75,43.75 -14.58,-14.58 43.75,-43.75 z"/>
+
+        <!-- Diagonaler Strahl rechts oben -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M114.41,-99.49 l-43.75,43.76 -14.59,-14.59 43.76,-43.75 z"/>
+
+        <!-- Diagonaler Strahl links oben -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-55.74,-70.66 l-14.58,14.59 -43.75,-43.75 14.58,-14.59 z"/>
+
+        <!-- Diagonaler Strahl rechts unten -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M114.07,99.82 l-14.58,14.58 -43.76,-43.75 14.59,-14.58 z"/>
+    </group>
+</vector>
