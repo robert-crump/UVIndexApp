@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.uvindex.app.MainActivity
 import com.uvindex.app.R
 import com.uvindex.app.UVIndexApplication
+import com.uvindex.app.worker.NotificationActionReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -58,7 +59,7 @@ class NotificationDispatcher(private val context: Context) {
             Priority.Default -> NotificationCompat.PRIORITY_DEFAULT
         }
 
-        return NotificationCompat.Builder(context, UVIndexApplication.NOTIFICATION_CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, UVIndexApplication.NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(decision.title)
             .setContentText(decision.body)
@@ -66,7 +67,22 @@ class NotificationDispatcher(private val context: Context) {
             .setPriority(androidPriority)
             .setContentIntent(tapIntent)
             .setAutoCancel(true)
-            .build()
+
+        for (action in decision.actions) {
+            when (action) {
+                is Action.DisableUvWarningsToday -> {
+                    val disableIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                        this.action = NotificationActionReceiver.ACTION_DISABLE_UV_WARNINGS
+                    }
+                    val disablePendingIntent = PendingIntent.getBroadcast(
+                        context, 0, disableIntent, PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    builder.addAction(0, "Warnungen heute deaktivieren", disablePendingIntent)
+                }
+            }
+        }
+
+        return builder.build()
     }
 
     private fun hasNotificationPermission(): Boolean =

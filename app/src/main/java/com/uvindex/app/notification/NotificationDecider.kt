@@ -15,8 +15,6 @@ object NotificationDecider {
     /**
      * Evaluates [history] and [forecast] at [now] and returns the list of
      * [NotificationDecision]s that should be dispatched this tick.
-     *
-     * UV Warning channel is not implemented in this slice — only Daily decisions are emitted.
      */
     fun decide(
         now: ZonedDateTime,
@@ -25,6 +23,7 @@ object NotificationDecider {
     ): List<NotificationDecision> {
         val decisions = mutableListOf<NotificationDecision>()
         decideDailyForecast(now, forecast, history)?.let { decisions.add(it) }
+        decideUvWarning(now, forecast, history)?.let { decisions.add(it) }
         return decisions
     }
 
@@ -57,6 +56,91 @@ object NotificationDecider {
             priority = Priority.Default,
             actions = emptyList(),
         )
+    }
+
+    /**
+     * Emits a [Channel.UvWarning] decision with [Phase.Prelude] or [Phase.InWindow]:
+     * - Prelude: current hour UV < 6 AND next forecast hour UV ≥ 6
+     * - InWindow: current hour UV ≥ 6 (fallback for missed Prelude)
+     * Once-per-day dedup: [NotificationHistory.lastUvWarningOn] == today blocks re-fire.
+     * [NotificationHistory.uvWarningDisabledOn] == today blocks unconditionally.
+     *
+     * See CONTEXT.md → "UV Warning", "Prelude phase", "In-window phase", "Disabled Today".
+     */
+    private fun decideUvWarning(
+        now: ZonedDateTime,
+        forecast: UVForecast?,
+        history: NotificationHistory,
+    ): NotificationDecision? {
+        if (!history.uvWarningEnabled) return null
+        if (forecast == null) return null
+        val today = now.toLocalDate()
+        if (history.uvWarningDisabledOn == today) return null
+        if (history.lastUvWarningOn == today) return null
+
+        val currentHour = now.hour
+        val currentUV = forecast.allDayForecasts.find { it.hour == currentHour }?.uvIndex
+            ?: forecast.currentHour.uvIndex
+        val nextHourUV = forecast.allDayForecasts.find { it.hour == currentHour + 1 }?.uvIndex ?: 0.0
+
+        val phase: Phase = when {
+            currentUV < 6.0 && nextHourUV >= 6.0 -> Phase.Prelude
+            currentUV >= 6.0 -> Phase.InWindow
+            else -> return null
+        }
+
+        val highForecasts = forecast.allDayForecasts.filter { it.uvIndex >= 6.0 }
+        if (highForecasts.isEmpty()) return null
+
+        val warnedAbout = buildWarnedAbout(highForecasts)
+        val (title, body) = buildUvWarningContent(phase, forecast, currentHour, nextHourUV)
+        return NotificationDecision(
+            channel = Channel.UvWarning,
+            phase = phase,
+            title = title,
+            body = body,
+            priority = Priority.High,
+            actions = listOf(Action.DisableUvWarningsToday),
+            warnedAbout = warnedAbout,
+        )
+    }
+
+    private fun buildWarnedAbout(highForecasts: List<com.uvindex.app.data.model.HourlyForecast>): WarnedAbout {
+        val highHours = highForecasts.map { it.hour }.toSet()
+        val firstHighHour = highHours.min()
+        val peak = highForecasts.maxOf { it.uvIndex.toFloat() }
+        return WarnedAbout(peak = peak, firstHighHour = firstHighHour, highHours = highHours)
+    }
+
+    private fun buildUvWarningContent(
+        phase: Phase,
+        forecast: UVForecast,
+        currentHour: Int,
+        nextHourUV: Double,
+    ): Pair<String, String> = when (phase) {
+        Phase.Prelude -> {
+            val nextHighHour = currentHour + 1
+            val body = "UV steigt ab ${"%02d".format(nextHighHour)}:00 Uhr auf hohe Werte " +
+                "(${nextHourUV.toInt()}). Jetzt Sonnenschutz auftragen."
+            "UV-Anstieg in Kürze" to body
+        }
+        Phase.InWindow -> {
+            val highHours = forecast.allDayForecasts.filter {
+                it.uvIndex >= 6.0 && it.hour >= currentHour
+            }
+            val firstH = highHours.firstOrNull()?.hour ?: currentHour
+            val lastH = highHours.lastOrNull()?.hour ?: currentHour
+            val veryHigh = highHours.filter { it.uvIndex >= 8.0 }
+            val sentence1 = "Hohe UV-Strahlung zwischen ${"%02d".format(firstH)}:00 " +
+                "und ${"%02d".format(lastH + 1)}:00 Uhr."
+            val sentence2 = if (veryHigh.isNotEmpty()) {
+                val fvh = veryHigh.first().hour
+                val lvh = veryHigh.last().hour
+                " Sehr hohe Strahlung (8+) von ${"%02d".format(fvh)}:00 " +
+                    "bis ${"%02d".format(lvh + 1)}:00 Uhr."
+            } else ""
+            "UV-Warnung" to (sentence1 + sentence2)
+        }
     }
 
     private fun buildDailyContent(forecast: UVForecast): Pair<String, String> {

@@ -84,4 +84,32 @@ class NotificationDispatcherTest {
         assertEquals(decision.title, notification!!.extras.getString("android.title"))
         assertEquals(decision.body, notification.extras.getString("android.text"))
     }
+
+    @Test
+    fun `send posts UV Warning notification with correct ID and action button`() = runTest {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        Shadows.shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+
+        val decision = NotificationDecision(
+            channel = Channel.UvWarning,
+            phase = Phase.InWindow,
+            title = "UV-Warnung",
+            body = "Hohe UV-Strahlung zwischen 10:00 und 14:00 Uhr.",
+            priority = Priority.High,
+            actions = listOf(Action.DisableUvWarningsToday),
+            warnedAbout = WarnedAbout(peak = 7.0f, firstHighHour = 10, highHours = setOf(10, 11, 12, 13)),
+        )
+
+        val dispatcher = NotificationDispatcher(context)
+        val result = dispatcher.send(decision)
+
+        assertTrue("Expected true on successful dispatch", result)
+
+        val shadow = Shadows.shadowOf(notificationManager)
+        val notification = shadow.getNotification(null, Channel.UvWarning.notificationId)
+        assertNotNull("Expected notification with ID ${Channel.UvWarning.notificationId}", notification)
+        assertEquals(decision.title, notification!!.extras.getString("android.title"))
+        assertNotNull("Expected at least one action (Disable)", notification.actions)
+        assertTrue("Expected Disable action button", notification.actions.isNotEmpty())
+    }
 }

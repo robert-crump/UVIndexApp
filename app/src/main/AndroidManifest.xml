@@ -70,7 +70,7 @@
             android:name=".worker.NotificationActionReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.uvindex.app.DISABLE_HOURLY" />
+                <action android:name="com.uvindex.app.DISABLE_UV_WARNINGS" />
             </intent-filter>
         </receiver>
 

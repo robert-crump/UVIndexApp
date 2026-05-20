@@ -111,4 +111,58 @@ class NotificationHistoryStoreTest {
             history2.lastDailySent,
         )
     }
+
+    @Test
+    fun `snapshot migrates legacy hourly sent time and disabled date into UV Warning fields`() = runTest {
+        val lastHourlySentMs = System.currentTimeMillis() - 3_600_000L  // 1 hour ago
+        val disabledDate = LocalDate.now().toString()
+
+        context.getSharedPreferences("uv_notifications", Context.MODE_PRIVATE).edit()
+            .putLong("last_hourly_sent_time", lastHourlySentMs)
+            .putString("hourly_disabled_date", disabledDate)
+            .commit()
+
+        val store = SharedPreferencesNotificationHistoryStore(context)
+        val history = store.snapshot()
+
+        assertNotNull("lastUvWarningAt should be set from legacy hourly timestamp", history.lastUvWarningAt)
+        assertEquals(
+            "uvWarningDisabledOn should reflect legacy hourly_disabled_date",
+            LocalDate.parse(disabledDate), history.uvWarningDisabledOn,
+        )
+    }
+
+    @Test
+    fun `if hourly sent today migration sets lastUvWarningOn to today to block re-fire`() = runTest {
+        context.getSharedPreferences("uv_notifications", Context.MODE_PRIVATE).edit()
+            .putLong("last_hourly_sent_time", System.currentTimeMillis())
+            .commit()
+
+        val store = SharedPreferencesNotificationHistoryStore(context)
+        val history = store.snapshot()
+
+        assertEquals(
+            "lastUvWarningOn should be today when hourly was sent today",
+            LocalDate.now(), history.lastUvWarningOn,
+        )
+    }
+
+    @Test
+    fun `snapshot migrates legacy transition warning into lastUvWarning`() = runTest {
+        val today = LocalDate.now().toString()
+        context.getSharedPreferences("uv_notifications", Context.MODE_PRIVATE).edit()
+            .putInt("last_transition_warned_hour", 11)
+            .putString("last_transition_warned_date", today)
+            .commit()
+
+        val store = SharedPreferencesNotificationHistoryStore(context)
+        val history = store.snapshot()
+
+        assertNotNull("lastUvWarning should be set from legacy transition keys", history.lastUvWarning)
+        assertEquals(11, history.lastUvWarning!!.firstHighHour)
+        assertTrue("highHours should contain the warned hour", history.lastUvWarning!!.highHours.contains(11))
+        assertEquals(6.0f, history.lastUvWarning!!.peak, 0.001f)
+        // transition was today → lastUvWarningOn should be today to block re-fire
+        assertEquals(LocalDate.now(), history.lastUvWarningOn)
+    }
 }

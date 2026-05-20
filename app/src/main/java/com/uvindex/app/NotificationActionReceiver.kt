@@ -5,32 +5,33 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
-import java.time.LocalDateTime
+import com.uvindex.app.notification.Channel
+import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class NotificationActionReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "NotificationActionRx"
-        private const val PREFS_NAME = "uv_notifications"
-        private const val KEY_HOURLY_DISABLED_DATE = "hourly_disabled_date"
+        const val ACTION_DISABLE_UV_WARNINGS = "com.uvindex.app.DISABLE_UV_WARNINGS"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            HourlyUpdateWorker.ACTION_DISABLE_HOURLY -> {
-                Log.d(TAG, "Disabling hourly warnings for today")
-                disableHourlyForToday(context)
-                // Dismiss the notification
-                NotificationManagerCompat.from(context).cancel(2)
+            ACTION_DISABLE_UV_WARNINGS -> {
+                Log.d(TAG, "Disabling UV warnings for today")
+                NotificationManagerCompat.from(context).cancel(Channel.UvWarning.notificationId)
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        SharedPreferencesNotificationHistoryStore(context).markUvWarningDisabledToday()
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
             }
         }
-    }
-
-    private fun disableHourlyForToday(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val today = LocalDateTime.now().toLocalDate().toString()
-        prefs.edit()
-            .putString(KEY_HOURLY_DISABLED_DATE, today)
-            .apply()
     }
 }

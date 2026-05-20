@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 /**
  * Persisted [NotificationHistory] store. Implementations must be safe to call from any coroutine.
@@ -56,15 +57,47 @@ class SharedPreferencesNotificationHistoryStore(
     private fun migrate() {
         val legacyNotif = context.getSharedPreferences(PREFS_LEGACY_NOTIFICATIONS, Context.MODE_PRIVATE)
         val legacySettings = context.getSharedPreferences(PREFS_LEGACY_SETTINGS, Context.MODE_PRIVATE)
+        val today = LocalDate.now()
 
         prefs.edit().also { editor ->
             editor.putBoolean(KEY_MIGRATED, true)
+
+            // Settings
             editor.putBoolean(KEY_DAILY_ENABLED, legacySettings.getBoolean(LEGACY_DAILY_ENABLED, true))
             editor.putBoolean(KEY_UV_WARNING_ENABLED, legacySettings.getBoolean(LEGACY_UV_WARNING_ENABLED, true))
+
+            // Daily channel
             legacyNotif.getString(LEGACY_DAILY_SENT_DATE, null)
                 ?.let { editor.putString(KEY_LAST_DAILY_SENT, it) }
             legacyNotif.getLong(LEGACY_DAILY_SENT_TIMESTAMP, 0L).takeIf { it > 0L }
                 ?.let { editor.putLong(KEY_LAST_DAILY_SENT_AT, it) }
+
+            // UV Warning: hourly_disabled_date → uvWarningDisabledOn
+            legacyNotif.getString(LEGACY_HOURLY_DISABLED_DATE, null)
+                ?.let { editor.putString(KEY_UV_WARNING_DISABLED_ON, it) }
+
+            // UV Warning: last_hourly_sent_time → lastUvWarningAt + lastUvWarningOn
+            val lastHourlySentMs = legacyNotif.getLong(LEGACY_LAST_HOURLY_SENT_TIME, 0L)
+            if (lastHourlySentMs > 0L) {
+                editor.putLong(KEY_LAST_UV_WARNING_AT, lastHourlySentMs)
+                val sentDate = Instant.ofEpochMilli(lastHourlySentMs)
+                    .atZone(ZoneId.systemDefault()).toLocalDate()
+                editor.putString(KEY_LAST_UV_WARNING_ON, sentDate.toString())
+            }
+
+            // UV Warning: last_transition_warned_hour + last_transition_warned_date → lastUvWarning
+            // peak is conservatively 6.0f (we only know it was ≥ threshold at the time)
+            val transitionDate = legacyNotif.getString(LEGACY_LAST_TRANSITION_WARNED_DATE, null)
+            val transitionHour = legacyNotif.getInt(LEGACY_LAST_TRANSITION_WARNED_HOUR, -1)
+            if (transitionDate != null && transitionHour >= 0) {
+                editor.putFloat(KEY_WARNED_ABOUT_PEAK, 6.0f)
+                editor.putInt(KEY_WARNED_ABOUT_FIRST_HIGH_HOUR, transitionHour)
+                editor.putString(KEY_WARNED_ABOUT_HIGH_HOURS, transitionHour.toString())
+                // If transition was today, block immediate UV Warning re-fire
+                if (transitionDate == today.toString()) {
+                    editor.putString(KEY_LAST_UV_WARNING_ON, today.toString())
+                }
+            }
         }.apply()
     }
 
@@ -144,5 +177,9 @@ class SharedPreferencesNotificationHistoryStore(
         private const val LEGACY_DAILY_SENT_TIMESTAMP = "daily_sent_timestamp"
         private const val LEGACY_DAILY_ENABLED = "daily_notification_enabled"
         private const val LEGACY_UV_WARNING_ENABLED = "hourly_notification_enabled"
+        private const val LEGACY_LAST_HOURLY_SENT_TIME = "last_hourly_sent_time"
+        private const val LEGACY_HOURLY_DISABLED_DATE = "hourly_disabled_date"
+        private const val LEGACY_LAST_TRANSITION_WARNED_HOUR = "last_transition_warned_hour"
+        private const val LEGACY_LAST_TRANSITION_WARNED_DATE = "last_transition_warned_date"
     }
 }

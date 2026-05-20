@@ -60,3 +60,74 @@ Obtain context via `ApplicationProvider.getApplicationContext()`.
 ### Follow-up (2026-05-20, session 2)
 CONTEXT.md was present on disk but not staged in the previous commit. Added to git and
 GitHub issue #6 closed. No code changes — all 12 tests still pass.
+
+---
+
+## Issue #7 — UV Warning channel with Prelude + In-window phases
+
+### Status: COMPLETE
+
+### What was implemented
+
+**`NotificationDecider.kt`:**
+- Added `decideUvWarning()` — pure UV Warning decision logic with Prelude and In-window phases.
+- Prelude: currentUV < 6 AND next forecast hour UV >= 6.
+- InWindow: currentUV >= 6 (fallback when Prelude was missed).
+- Guards: `uvWarningEnabled`, `uvWarningDisabledOn == today`, `lastUvWarningOn == today`
+  (once-per-day dedup; Worse News re-fire added in the next slice).
+- Helper `buildWarnedAbout()` captures peak, firstHighHour, highHours from all high-UV entries.
+- Helper `buildUvWarningContent()` builds German notification text for each phase.
+- `decide()` now calls both `decideDailyForecast()` and `decideUvWarning()`.
+
+**`NotificationHistoryStore.kt`:**
+- Extended `migrate()` to fold legacy hourly + transition SharedPreferences into the umbrella:
+  - `last_hourly_sent_time` (Long ms) → `lastUvWarningAt` + `lastUvWarningOn`
+    (if sent today, dedup blocks immediate re-fire).
+  - `hourly_disabled_date` (String) → `uvWarningDisabledOn`.
+  - `last_transition_warned_hour` + `last_transition_warned_date` → `lastUvWarning`
+    with peak=6.0f (conservative), highHours={warnedHour}.
+    If transition was today → `lastUvWarningOn = today` to block re-fire.
+- Added four new legacy constants for the new migration paths.
+
+**`NotificationDispatcher.kt`:**
+- `buildNotification()` now iterates `decision.actions`.
+- For `Action.DisableUvWarningsToday`, adds "Warnungen heute deaktivieren" button whose
+  PendingIntent broadcasts to `NotificationActionReceiver.ACTION_DISABLE_UV_WARNINGS`.
+
+**`NotificationActionReceiver.kt`:**
+- Replaced `ACTION_DISABLE_HOURLY` + direct SharedPreferences writes with
+  `ACTION_DISABLE_UV_WARNINGS` + `historyStore.markUvWarningDisabledToday()` via goAsync coroutine.
+- No SharedPreferences calls remain in the receiver.
+
+**`HourlyUpdateWorker.kt`:**
+- Deleted inline methods: `checkAndSendHourlyWarning`, `checkAndSendTransitionWarning`,
+  `sendHourlyWarning`, `isHourlyDisabledToday`, `isHourlyNotificationEnabled`,
+  `hasNotificationPermission`.
+- `doWork()` now: fetch forecast → `historyStore.snapshot()` → `NotificationDecider.decide()`
+  → dispatch + record each decision.
+- Widget update path (only on `shouldFetchNew`) preserved unchanged.
+
+**`AndroidManifest.xml`:**
+- Updated `NotificationActionReceiver` intent-filter action from `DISABLE_HOURLY`
+  to `DISABLE_UV_WARNINGS`.
+
+**Note on notification ID 3:**
+No code path in the new module emits notification ID 3. The legacy
+`checkAndSendTransitionWarning` (which called `notify(3, ...)`) has been deleted from
+`HourlyUpdateWorker`.
+
+**Tests:**
+- `NotificationDeciderTest` — 5 new UV Warning tests: Prelude fires, InWindow fires,
+  silent when disabled in settings, silent when disabled today, silent when sent today.
+  `historyWith()` helper defaulted to `uvWarningEnabled = false` to isolate Daily-channel
+  tests from UV Warning interference.
+- `NotificationHistoryStoreTest` — 4 new migration tests: hourly timestamp/disabled date,
+  lastUvWarningOn set to today when hourly was sent today, transition keys → lastUvWarning.
+- `NotificationDispatcherTest` — 1 new UV Warning test: notification ID 2, correct title,
+  action button present.
+
+### Test results
+21 tests run, 21 passed (0 failures).
+- NotificationDeciderTest: 11/11 passed (6 Daily + 5 UV Warning, pure JVM)
+- NotificationHistoryStoreTest: 8/8 passed (4 original + 4 UV Warning migration, Robolectric)
+- NotificationDispatcherTest: 3/3 passed (2 original + 1 UV Warning, Robolectric)
