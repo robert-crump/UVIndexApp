@@ -1,0 +1,58 @@
+## Issue #6 — Notification module foundation + Daily Forecast channel
+
+### Status: COMPLETE
+
+### What was implemented
+
+**New package `com.uvindex.app.notification`:**
+
+- `NotificationTypes.kt` — Decision-locked data types: `NotificationHistory`, `WarnedAbout`,
+  `Channel`, `Phase`, `Priority`, `Action`, `NotificationDecision`. No Android imports.
+
+- `NotificationDecider.kt` — Pure `decide(now: ZonedDateTime, forecast: UVForecast?,
+  history: NotificationHistory): List<NotificationDecision>` function. No Android imports.
+  Morning trigger window: hours 5–11. Emits Daily decision when `dailyEnabled`, not already
+  sent today, in window, and forecast available. UV Warning channel returns nothing (Slice 2).
+
+- `NotificationHistoryStore.kt` — `NotificationHistoryStore` interface with
+  `snapshot() / record() / markUvWarningDisabledToday()`. Backed by
+  `SharedPreferencesNotificationHistoryStore` which runs one-time migration from legacy
+  `uv_notifications` and `uv_app_settings` SharedPreferences on first `snapshot()` call.
+  Migration flag: `umbrella_migrated` in `uv_notification_history` prefs.
+
+- `NotificationDispatcher.kt` — Renders a `NotificationDecision` into an Android notification.
+  Returns `true` on success, `false` (no crash) when POST_NOTIFICATIONS permission is missing.
+
+**Refactored `DailyUVCheckWorker.kt`:**
+- Reduced to: refresh forecast → snapshot history → decide() → dispatch + record on success.
+- Inline helpers `sendDailyForecastNotification`, `buildDailyDescription`, `createTimeRanges`,
+  `formatTimeRange` deleted from the worker.
+
+**Test infrastructure (`app/src/test/java/`):**
+- Scaffolded JVM test source set (previously empty).
+- `NotificationDeciderTest` — 6 pure JVM tests for `decide()` Daily cases.
+- `NotificationHistoryStoreTest` — 4 Robolectric tests covering migration from legacy keys.
+- `NotificationDispatcherTest` — 2 Robolectric tests verifying correct notification ID/title/body
+  and graceful false-return when permission missing.
+
+**Build upgrades required for JDK 25 compatibility:**
+- Gradle wrapper: 8.2 → 9.5.1 (Gradle 8.x embeds Kotlin 2.0.21 DSL which can't parse JDK 25
+  version string; Gradle 9.5.1 embeds Kotlin 2.1.x DSL with the fix).
+- Kotlin plugin: 1.9.22 → 2.1.21 (via `org.jetbrains.kotlin.android` + new
+  `org.jetbrains.kotlin.plugin.compose` plugin replacing `composeOptions` block).
+- AGP: 8.2.2 → 8.7.3 (needed for Gradle 9.x compatibility).
+- Robolectric: 4.11.1 → 4.16.1 (4.14.x and earlier use ASM < 9.8 which can't read JDK 25
+  class file major version 69; 4.16.1 includes ASM 9.8 with JDK 25 support).
+- Serialization plugin: 1.9.22 → 2.1.21.
+
+**Test pattern note (for future slices):**
+Robolectric tests: annotate with `@RunWith(RobolectricTestRunner::class)` + use
+`@Config(application = Application::class)` to prevent `UVIndexApplication.onCreate()` from
+running (it calls WorkManager which is not initialized in Robolectric test environment).
+Obtain context via `ApplicationProvider.getApplicationContext()`.
+
+### Test results
+12 tests run, 12 passed (0 failures).
+- NotificationDeciderTest: 6/6 passed (pure JVM, no Android imports)
+- NotificationHistoryStoreTest: 4/4 passed (Robolectric, migration coverage)
+- NotificationDispatcherTest: 2/2 passed (Robolectric, notification ID/title/body verified)
