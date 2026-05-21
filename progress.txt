@@ -168,3 +168,38 @@ No code path in the new module emits notification ID 3. The legacy
 - NotificationDeciderTest: 22/22 passed (6 Daily + 5 UV Warning first-fire + 6 worseNews + 5 re-fire, pure JVM)
 - NotificationHistoryStoreTest: 7/7 passed (Robolectric, migration coverage)
 - NotificationDispatcherTest: 3/3 passed (Robolectric, notification ID/title/body verified)
+
+---
+
+## Issue #9 — Clean up legacy notification SharedPreferences keys
+
+### Status: COMPLETE
+
+### What was implemented
+
+**`NotificationHistoryStore.kt`:**
+- Added `purgeLegacyKeys()` private method: removes the six legacy keys from `uv_notifications`
+  SharedPreferences via a single `edit().remove(...).apply()` chain:
+  `daily_sent_date`, `daily_sent_timestamp`, `last_hourly_sent_time`,
+  `hourly_disabled_date`, `last_transition_warned_hour`, `last_transition_warned_date`.
+- `record()` calls `purgeLegacyKeys()` at the end, after writing to the umbrella. Since `record()`
+  always writes at least one umbrella value, this satisfies the "after umbrella has at least one
+  written value" trigger. Subsequent calls are idempotent (removing absent keys is a no-op).
+- `uv_app_settings` keys (`daily_notification_enabled`, `hourly_notification_enabled`) are not touched.
+- Updated legacy key comment from "left in place" to "purged from uv_notifications on first record()".
+
+**`NotificationHistoryStoreTest.kt`:**
+- Added `import java.time.Instant` for the new test helper.
+- 3 new tests (Issue #9 section):
+  - `record deletes six legacy keys from uv_notifications` — writes all 6 legacy keys, calls
+    `record()`, asserts none remain; also verifies umbrella is still readable.
+  - `snapshot alone does not touch legacy keys` — confirms legacy keys survive multiple
+    `snapshot()` calls when no `record()` has been called.
+  - `record does not touch settings keys in uv_app_settings` — seeds both settings keys, calls
+    `record()`, verifies both keys are still present with their original values.
+
+### Test results
+35 tests run, 35 passed (0 failures).
+- NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
+- NotificationHistoryStoreTest: 10/10 passed (7 prior + 3 new legacy-cleanup tests, Robolectric)
+- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)

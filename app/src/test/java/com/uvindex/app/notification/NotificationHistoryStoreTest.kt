@@ -8,6 +8,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import java.time.Instant
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -164,5 +165,86 @@ class NotificationHistoryStoreTest {
         assertEquals(6.0f, history.lastUvWarning!!.peak, 0.001f)
         // transition was today → lastUvWarningOn should be today to block re-fire
         assertEquals(LocalDate.now(), history.lastUvWarningOn)
+    }
+
+    // ── Issue #9: legacy key cleanup after record() ─────────────────────────
+
+    @Test
+    fun `record deletes six legacy keys from uv_notifications`() = runTest {
+        val legacyPrefs = context.getSharedPreferences("uv_notifications", Context.MODE_PRIVATE)
+        legacyPrefs.edit()
+            .putString("daily_sent_date", "2026-01-01")
+            .putLong("daily_sent_timestamp", 1_000_000L)
+            .putLong("last_hourly_sent_time", 2_000_000L)
+            .putString("hourly_disabled_date", "2026-01-01")
+            .putInt("last_transition_warned_hour", 10)
+            .putString("last_transition_warned_date", "2026-01-01")
+            .commit()
+
+        val store = SharedPreferencesNotificationHistoryStore(context)
+        val decision = NotificationDecision(
+            channel = Channel.Daily,
+            phase = Phase.InWindow,
+            title = "UV",
+            body = "body",
+            priority = Priority.Default,
+            warnedAbout = null,
+            actions = emptyList(),
+        )
+        store.record(decision, Instant.now())
+
+        // All six legacy keys must be gone
+        assertFalse(legacyPrefs.contains("daily_sent_date"))
+        assertFalse(legacyPrefs.contains("daily_sent_timestamp"))
+        assertFalse(legacyPrefs.contains("last_hourly_sent_time"))
+        assertFalse(legacyPrefs.contains("hourly_disabled_date"))
+        assertFalse(legacyPrefs.contains("last_transition_warned_hour"))
+        assertFalse(legacyPrefs.contains("last_transition_warned_date"))
+
+        // Umbrella still readable
+        val history = store.snapshot()
+        assertEquals(LocalDate.now(), history.lastDailySent)
+    }
+
+    @Test
+    fun `snapshot alone does not touch legacy keys`() = runTest {
+        val legacyPrefs = context.getSharedPreferences("uv_notifications", Context.MODE_PRIVATE)
+        legacyPrefs.edit()
+            .putString("daily_sent_date", "2026-01-01")
+            .putLong("last_hourly_sent_time", 2_000_000L)
+            .commit()
+
+        val store = SharedPreferencesNotificationHistoryStore(context)
+        store.snapshot()
+        store.snapshot()
+
+        assertTrue("legacy key should still exist after snapshot-only calls", legacyPrefs.contains("daily_sent_date"))
+        assertTrue("legacy key should still exist after snapshot-only calls", legacyPrefs.contains("last_hourly_sent_time"))
+    }
+
+    @Test
+    fun `record does not touch settings keys in uv_app_settings`() = runTest {
+        val settingsPrefs = context.getSharedPreferences("uv_app_settings", Context.MODE_PRIVATE)
+        settingsPrefs.edit()
+            .putBoolean("daily_notification_enabled", false)
+            .putBoolean("hourly_notification_enabled", true)
+            .commit()
+
+        val store = SharedPreferencesNotificationHistoryStore(context)
+        val decision = NotificationDecision(
+            channel = Channel.Daily,
+            phase = Phase.InWindow,
+            title = "UV",
+            body = "body",
+            priority = Priority.Default,
+            warnedAbout = null,
+            actions = emptyList(),
+        )
+        store.record(decision, Instant.now())
+
+        assertTrue("uv_app_settings should still contain daily_notification_enabled", settingsPrefs.contains("daily_notification_enabled"))
+        assertFalse("daily_notification_enabled should remain false", settingsPrefs.getBoolean("daily_notification_enabled", true))
+        assertTrue("uv_app_settings should still contain hourly_notification_enabled", settingsPrefs.contains("hourly_notification_enabled"))
+        assertTrue("hourly_notification_enabled should remain true", settingsPrefs.getBoolean("hourly_notification_enabled", false))
     }
 }

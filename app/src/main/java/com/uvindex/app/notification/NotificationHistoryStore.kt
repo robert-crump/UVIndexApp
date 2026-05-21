@@ -148,7 +148,19 @@ class SharedPreferencesNotificationHistoryStore(
                     }
                 }
             }.apply()
+            purgeLegacyKeys()
         }
+
+    private fun purgeLegacyKeys() {
+        context.getSharedPreferences(PREFS_LEGACY_NOTIFICATIONS, Context.MODE_PRIVATE).edit()
+            .remove(LEGACY_DAILY_SENT_DATE)
+            .remove(LEGACY_DAILY_SENT_TIMESTAMP)
+            .remove(LEGACY_LAST_HOURLY_SENT_TIME)
+            .remove(LEGACY_HOURLY_DISABLED_DATE)
+            .remove(LEGACY_LAST_TRANSITION_WARNED_HOUR)
+            .remove(LEGACY_LAST_TRANSITION_WARNED_DATE)
+            .apply()
+    }
 
     override suspend fun markUvWarningDisabledToday() = withContext(Dispatchers.IO) {
         prefs.edit()
@@ -170,7 +182,7 @@ class SharedPreferencesNotificationHistoryStore(
         private const val KEY_WARNED_ABOUT_FIRST_HIGH_HOUR = "warned_about_first_high_hour"
         private const val KEY_WARNED_ABOUT_HIGH_HOURS = "warned_about_high_hours"
 
-        // Legacy SharedPreferences locations (left in place; cleaned up in a later slice)
+        // Legacy SharedPreferences locations (purged from uv_notifications on first record())
         private const val PREFS_LEGACY_NOTIFICATIONS = "uv_notifications"
         private const val PREFS_LEGACY_SETTINGS = "uv_app_settings"
         private const val LEGACY_DAILY_SENT_DATE = "daily_sent_date"
