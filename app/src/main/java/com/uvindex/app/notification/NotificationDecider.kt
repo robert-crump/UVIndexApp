@@ -1,6 +1,7 @@
 package com.uvindex.app.notification
 
 import com.uvindex.app.data.model.UVForecast
+import java.time.LocalDateTime
 import java.time.ZonedDateTime
 
 /**
@@ -76,7 +77,6 @@ object NotificationDecider {
         if (forecast == null) return null
         val today = now.toLocalDate()
         if (history.uvWarningDisabledOn == today) return null
-        if (history.lastUvWarningOn == today) return null
 
         val currentHour = now.hour
         val currentUV = forecast.allDayForecasts.find { it.hour == currentHour }?.uvIndex
@@ -93,6 +93,11 @@ object NotificationDecider {
         if (highForecasts.isEmpty()) return null
 
         val warnedAbout = buildWarnedAbout(highForecasts)
+
+        if (history.lastUvWarningOn == today) {
+            if (!worseNews(history.lastUvWarning, warnedAbout, now.toLocalDateTime())) return null
+        }
+
         val (title, body) = buildUvWarningContent(phase, forecast, currentHour, nextHourUV)
         return NotificationDecision(
             channel = Channel.UvWarning,
@@ -103,6 +108,26 @@ object NotificationDecider {
             actions = listOf(Action.DisableUvWarningsToday),
             warnedAbout = warnedAbout,
         )
+    }
+
+    /**
+     * Returns true when the new forecast is genuinely worse than what was previously warned about,
+     * justifying a same-day re-fire of the UV Warning. [previous] == null always returns true.
+     * See CONTEXT.md → "Worse News".
+     */
+    internal fun worseNews(
+        previous: WarnedAbout?,
+        current: WarnedAbout,
+        now: LocalDateTime,
+    ): Boolean {
+        if (previous == null) return true
+        if (current.peak > previous.peak) return true
+        if (current.firstHighHour < previous.firstHighHour) return true
+        val newHoursAfterNow = current.highHours.any { h ->
+            h >= now.hour && h !in previous.highHours
+        }
+        if (newHoursAfterNow) return true
+        return false
     }
 
     private fun buildWarnedAbout(highForecasts: List<com.uvindex.app.data.model.HourlyForecast>): WarnedAbout {

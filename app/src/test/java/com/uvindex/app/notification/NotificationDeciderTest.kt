@@ -3,10 +3,12 @@ package com.uvindex.app.notification
 import com.uvindex.app.data.model.HourlyForecast
 import com.uvindex.app.data.model.UVForecast
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -41,6 +43,7 @@ class NotificationDeciderTest {
         uvWarningEnabled: Boolean = true,
         uvWarningDisabledOn: LocalDate? = null,
         lastUvWarningOn: LocalDate? = null,
+        lastUvWarning: WarnedAbout? = null,
     ) = NotificationHistory(
         dailyEnabled = false,
         uvWarningEnabled = uvWarningEnabled,
@@ -49,7 +52,7 @@ class NotificationDeciderTest {
         lastDailySentAt = null,
         lastUvWarningOn = lastUvWarningOn,
         lastUvWarningAt = null,
-        lastUvWarning = null,
+        lastUvWarning = lastUvWarning,
     )
 
     private fun fakeForecast(dailyMax: Double = 7.0): UVForecast {
@@ -187,12 +190,142 @@ class NotificationDeciderTest {
         assertTrue("Expected no UV Warning after user disabled today", result.none { it.channel == Channel.UvWarning })
     }
 
+    /** Forecast where [hourUVs] maps each hour to its UV index; [nowHour] is the current hour. */
+    private fun forecastWithHoursAt(nowHour: Int, hourUVs: Map<Int, Double>): UVForecast {
+        val entries = hourUVs.entries.sortedBy { it.key }.map { (h, uv) ->
+            HourlyForecast("2026-05-20T${"%02d".format(h)}:00", h, uv, 22.0)
+        }
+        val maxUV = entries.maxOf { it.uvIndex }
+        val currentEntry = entries.find { it.hour == nowHour } ?: entries.first()
+        return UVForecast(
+            currentHour = currentEntry,
+            nextHours = entries.filter { it.hour > nowHour },
+            dailyMax = maxUV,
+            dailyMaxRemaining = maxUV,
+            clearSkyMax = 10.0,
+            clearSkyHourly = emptyList(),
+            maxHourToday = entries.maxByOrNull { it.uvIndex }?.hour ?: nowHour,
+            highUVTimeSlots = emptyList(),
+            locationName = "Test",
+            allDayForecasts = entries,
+            airQuality = null,
+            lastUpdateTime = null,
+            countryCode = null,
+        )
+    }
+
     @Test
-    fun `decide is silent for UV Warning when lastUvWarningOn is today`() {
+    fun `decide is silent for UV Warning when lastUvWarningOn is today and forecast unchanged`() {
         val now = morningNow.withHour(11)
         val forecast = forecastWithUV(atHour = 11, currentUV = 7.0)
-        val history = historyForUvWarning(lastUvWarningOn = now.toLocalDate())
+        // lastUvWarning matches current forecast exactly → worseNews returns false → no re-fire
+        val previousWarning = WarnedAbout(peak = 7.0f, firstHighHour = 11, highHours = setOf(11))
+        val history = historyForUvWarning(lastUvWarningOn = now.toLocalDate(), lastUvWarning = previousWarning)
         val result = NotificationDecider.decide(now, forecast, history)
-        assertTrue("Expected no UV Warning when already sent today", result.none { it.channel == Channel.UvWarning })
+        assertTrue("Expected no UV Warning when already sent today with unchanged forecast", result.none { it.channel == Channel.UvWarning })
+    }
+
+    // ── worseNews unit tests ──────────────────────────────────────────────────
+
+    private fun nowAt(hour: Int): LocalDateTime =
+        LocalDateTime.now().withHour(hour).withMinute(0).withSecond(0).withNano(0)
+
+    @Test
+    fun `worseNews returns true when previous is null`() {
+        val current = WarnedAbout(peak = 7.0f, firstHighHour = 10, highHours = setOf(10, 11))
+        assertTrue(NotificationDecider.worseNews(null, current, nowAt(9)))
+    }
+
+    @Test
+    fun `worseNews returns false for identical content`() {
+        val w = WarnedAbout(peak = 7.0f, firstHighHour = 10, highHours = setOf(10, 11, 12))
+        assertFalse(NotificationDecider.worseNews(w, w, nowAt(9)))
+    }
+
+    @Test
+    fun `worseNews returns true when current peak is higher`() {
+        val prev = WarnedAbout(peak = 6.5f, firstHighHour = 10, highHours = setOf(10, 11))
+        val curr = WarnedAbout(peak = 8.0f, firstHighHour = 10, highHours = setOf(10, 11))
+        assertTrue(NotificationDecider.worseNews(prev, curr, nowAt(9)))
+    }
+
+    @Test
+    fun `worseNews returns true when current has new high hour at or after now`() {
+        val prev = WarnedAbout(peak = 7.0f, firstHighHour = 10, highHours = setOf(10, 11, 12))
+        val curr = WarnedAbout(peak = 7.0f, firstHighHour = 10, highHours = setOf(10, 11, 12, 13))
+        assertTrue(NotificationDecider.worseNews(prev, curr, nowAt(11)))
+    }
+
+    @Test
+    fun `worseNews returns true when current firstHighHour is earlier`() {
+        val prev = WarnedAbout(peak = 7.0f, firstHighHour = 11, highHours = setOf(11, 12))
+        val curr = WarnedAbout(peak = 7.0f, firstHighHour = 10, highHours = setOf(10, 11, 12))
+        assertTrue(NotificationDecider.worseNews(prev, curr, nowAt(9)))
+    }
+
+    @Test
+    fun `worseNews returns false when forecast shrinks`() {
+        val prev = WarnedAbout(peak = 8.0f, firstHighHour = 10, highHours = setOf(10, 11, 12, 13))
+        val curr = WarnedAbout(peak = 7.0f, firstHighHour = 10, highHours = setOf(10, 11))
+        // curr has no new hours >= 11 not in prev; peak is lower
+        assertFalse(NotificationDecider.worseNews(prev, curr, nowAt(11)))
+    }
+
+    // ── UV Warning re-fire (Worse News) decide() tests ─────────────────────────
+
+    @Test
+    fun `decide re-fires UV Warning when sent today but peak is higher`() {
+        val now = morningNow.withHour(11)
+        val forecast = forecastWithHoursAt(now.hour, mapOf(11 to 7.0, 12 to 8.5))
+        val previousWarning = WarnedAbout(peak = 6.5f, firstHighHour = 11, highHours = setOf(11, 12))
+        val history = historyForUvWarning(lastUvWarningOn = today, lastUvWarning = previousWarning)
+        val result = NotificationDecider.decide(now, forecast, history)
+        val uvDecision = result.find { it.channel == Channel.UvWarning }
+        assertNotNull("Expected UV Warning re-fire on higher peak", uvDecision)
+        assertEquals(8.5f, uvDecision!!.warnedAbout!!.peak)
+    }
+
+    @Test
+    fun `decide re-fires UV Warning when sent today but new high hour discovered after now`() {
+        val now = morningNow.withHour(11)
+        val forecast = forecastWithHoursAt(now.hour, mapOf(10 to 7.0, 11 to 7.0, 12 to 7.0, 13 to 7.0))
+        val previousWarning = WarnedAbout(peak = 7.0f, firstHighHour = 10, highHours = setOf(10, 11, 12))
+        val history = historyForUvWarning(lastUvWarningOn = today, lastUvWarning = previousWarning)
+        val result = NotificationDecider.decide(now, forecast, history)
+        assertNotNull("Expected UV Warning re-fire on new high hour after now", result.find { it.channel == Channel.UvWarning })
+    }
+
+    @Test
+    fun `decide re-fires UV Warning when sent today but firstHighHour moved earlier`() {
+        val now = morningNow.withHour(10)
+        val forecast = forecastWithHoursAt(now.hour, mapOf(10 to 7.0, 11 to 7.0, 12 to 7.0))
+        val previousWarning = WarnedAbout(peak = 7.0f, firstHighHour = 11, highHours = setOf(11, 12))
+        val history = historyForUvWarning(lastUvWarningOn = today, lastUvWarning = previousWarning)
+        val result = NotificationDecider.decide(now, forecast, history)
+        assertNotNull("Expected UV Warning re-fire when firstHighHour moved earlier", result.find { it.channel == Channel.UvWarning })
+    }
+
+    @Test
+    fun `decide stays silent when sent today and forecast window shrunk`() {
+        val now = morningNow.withHour(11)
+        val forecast = forecastWithHoursAt(now.hour, mapOf(10 to 6.5, 11 to 7.0))
+        val previousWarning = WarnedAbout(peak = 8.0f, firstHighHour = 10, highHours = setOf(10, 11, 12, 13))
+        val history = historyForUvWarning(lastUvWarningOn = today, lastUvWarning = previousWarning)
+        val result = NotificationDecider.decide(now, forecast, history)
+        assertTrue("Expected no re-fire on shrunk window", result.none { it.channel == Channel.UvWarning })
+    }
+
+    @Test
+    fun `decide stays silent when disabled today even if forecast worsened`() {
+        val now = morningNow.withHour(11)
+        val forecast = forecastWithHoursAt(now.hour, mapOf(11 to 9.0, 12 to 9.0, 13 to 9.0))
+        val previousWarning = WarnedAbout(peak = 6.5f, firstHighHour = 11, highHours = setOf(11))
+        val history = historyForUvWarning(
+            uvWarningDisabledOn = today,
+            lastUvWarningOn = today,
+            lastUvWarning = previousWarning,
+        )
+        val result = NotificationDecider.decide(now, forecast, history)
+        assertTrue("Expected UV Warning blocked when disabled today, even with worse news", result.none { it.channel == Channel.UvWarning })
     }
 }

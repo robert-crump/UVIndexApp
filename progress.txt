@@ -131,3 +131,40 @@ No code path in the new module emits notification ID 3. The legacy
 - NotificationDeciderTest: 11/11 passed (6 Daily + 5 UV Warning, pure JVM)
 - NotificationHistoryStoreTest: 8/8 passed (4 original + 4 UV Warning migration, Robolectric)
 - NotificationDispatcherTest: 3/3 passed (2 original + 1 UV Warning, Robolectric)
+
+---
+
+## Issue #8 — Worse News re-fire on forecast updates
+
+### Status: COMPLETE
+
+### What was implemented
+
+**`NotificationDecider.kt`:**
+- Added `internal fun worseNews(previous: WarnedAbout?, current: WarnedAbout, now: LocalDateTime): Boolean`.
+  Decision-locked predicate: `previous == null` → true; `current.peak > previous.peak` → true;
+  `current.firstHighHour < previous.firstHighHour` → true; any `current.highHours` hour
+  `>= now.hour` not in `previous.highHours` → true; otherwise false.
+- Modified `decideUvWarning()`: moved `highForecasts`/`warnedAbout` computation before the
+  once-per-day dedup guard. When `lastUvWarningOn == today`, calls
+  `worseNews(history.lastUvWarning, warnedAbout, now.toLocalDateTime())`; only suppresses
+  if `worseNews` is false. The unconditional `uvWarningDisabledOn == today` block is unchanged.
+- Added `import java.time.LocalDateTime`.
+
+**`NotificationDeciderTest.kt`:**
+- Updated `historyForUvWarning()` to accept `lastUvWarning: WarnedAbout? = null`.
+- Updated existing "silent when sent today" test to supply a matching `lastUvWarning` so
+  `worseNews` correctly returns false (previously `null` which now triggers a re-fire).
+- Added `forecastWithHoursAt(nowHour, hourUVs)` helper for multi-hour forecast construction.
+- Added `nowAt(hour)` helper for `LocalDateTime` in `worseNews` direct tests.
+- 6 `worseNews` direct tests: null previous → true; identical → false; higher peak → true;
+  new high hour after now → true; earlier firstHighHour → true; shrunk window → false.
+- 4 `decide()` re-fire tests: re-fires on higher peak; re-fires on new hour after now;
+  re-fires on earlier firstHighHour; stays silent on shrunk window.
+- 1 interaction test: user disabled today, forecast worsened → still silent.
+
+### Test results
+32 tests run, 32 passed (0 failures).
+- NotificationDeciderTest: 22/22 passed (6 Daily + 5 UV Warning first-fire + 6 worseNews + 5 re-fire, pure JVM)
+- NotificationHistoryStoreTest: 7/7 passed (Robolectric, migration coverage)
+- NotificationDispatcherTest: 3/3 passed (Robolectric, notification ID/title/body verified)
