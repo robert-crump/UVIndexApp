@@ -5,8 +5,8 @@ The vocabulary the codebase should use for UV forecasts and notifications. Updat
 ## Forecast Domain
 
 - **UV Forecast** — Hourly UV index values for today (and ahead), produced by Open-Meteo. **The forecast can change during the day** as the upstream model updates. Code that decides "is the user informed?" must treat the forecast as mutable, not a one-shot morning truth.
-- **High UV** — UV index ≥ 6. The threshold at which sunscreen is recommended. The single source of this threshold lives in the UV risk classifier (see deepening opportunity #1).
-- **Very High UV** — UV index ≥ 8. Used as emphasis inside notification bodies; not its own channel.
+- **High UV** — UV index ≥ 6. The threshold at which sunscreen is recommended. The single source of this threshold is `classifyUvRisk` in `com.uvindex.app.uv.UvRisk`.
+- **Very High UV** — UV index ≥ 8. Used as emphasis inside notification bodies; not its own channel. Threshold owned by `classifyUvRisk` in `com.uvindex.app.uv.UvRisk`.
 - **High UV Hour** — A forecast hour whose UV value is High UV.
 - **High UV Window** — A contiguous run of High UV Hours within a single day. A day may contain more than one window if UV dips below the threshold and rises again.
 

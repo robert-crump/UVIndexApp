@@ -203,3 +203,43 @@ No code path in the new module emits notification ID 3. The legacy
 - NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
 - NotificationHistoryStoreTest: 10/10 passed (7 prior + 3 new legacy-cleanup tests, Robolectric)
 - NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
+
+---
+
+## Issue #11 — UV Risk classifier: single owner of High UV / Very High UV thresholds
+
+### Status: COMPLETE
+
+### What was implemented
+
+**New module `com.uvindex.app.uv.UvRisk` (`app/src/main/java/com/uvindex/app/uv/UvRisk.kt`):**
+- `enum class UvRisk { None, Moderate, High, VeryHigh }` — ordinal ordering enables `>=` comparisons.
+- `classifyUvRisk(uvIndex: Double): UvRisk` — pure top-level classifier; thresholds ≥ 8.0 → VeryHigh, ≥ 6.0 → High, ≥ 3.0 → Moderate, else None.
+- `isHigh(): Boolean` extension — true for High and VeryHigh.
+- `isVeryHigh(): Boolean` extension — true only for VeryHigh.
+- No Android imports; pure Kotlin.
+- Package `com.uvindex.app.uv` chosen so `notification` depends on `uv`, not the reverse.
+
+**`NotificationDecider.kt` — all 6.0 / 8.0 literals replaced:**
+- Phase detection: `currentUV < 6.0` / `>= 6.0` → `!currentRisk.isHigh()` / `currentRisk.isHigh()` via `classifyUvRisk`.
+- `highForecasts` filter: `it.uvIndex >= 6.0` → `classifyUvRisk(it.uvIndex).isHigh()`.
+- InWindow `highHours` filter: same pattern.
+- InWindow `veryHigh` filter: `it.uvIndex >= 8.0` → `classifyUvRisk(it.uvIndex).isVeryHigh()`.
+- `buildHighUVDescription` very-high filter: `it.uvIndex >= 8` → `classifyUvRisk(it.uvIndex).isVeryHigh()`.
+- `buildHighUVDescription` high-only filter: `it.uvIndex in 6.0..<8.0` → `classifyUvRisk(it.uvIndex) == UvRisk.High`.
+- `WeatherRepository.findHighUVTimeSlots` (4.0 threshold, chart highlighting) left unchanged per spec.
+- `UVColorHelper` left unchanged per spec.
+
+**`CONTEXT.md` — forward-reference removed:**
+- High UV and Very High UV entries now point to `classifyUvRisk` in `com.uvindex.app.uv.UvRisk`.
+- "see deepening opportunity #1" removed.
+
+**`UvRiskTest.kt` (`app/src/test/java/com/uvindex/app/uv/UvRiskTest.kt`):**
+- 9 pure JVM tests covering: None range, Moderate range, High boundary (6.0), High mid-range, VeryHigh boundary (8.0), VeryHigh above 8.0, isHigh() for High/VeryHigh, isHigh() false for None/Moderate, isVeryHigh() exclusive to VeryHigh.
+
+### Test results
+44 tests run, 44 passed (0 failures).
+- UvRiskTest: 9/9 passed (pure JVM, new classifier tests)
+- NotificationDeciderTest: 22/22 passed (pure JVM, all existing cases pass with no behavior change)
+- NotificationHistoryStoreTest: 10/10 passed (Robolectric, unchanged)
+- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)

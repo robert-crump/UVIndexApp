@@ -1,6 +1,10 @@
 package com.uvindex.app.notification
 
 import com.uvindex.app.data.model.UVForecast
+import com.uvindex.app.uv.UvRisk
+import com.uvindex.app.uv.classifyUvRisk
+import com.uvindex.app.uv.isHigh
+import com.uvindex.app.uv.isVeryHigh
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
 
@@ -83,13 +87,15 @@ object NotificationDecider {
             ?: forecast.currentHour.uvIndex
         val nextHourUV = forecast.allDayForecasts.find { it.hour == currentHour + 1 }?.uvIndex ?: 0.0
 
+        val currentRisk = classifyUvRisk(currentUV)
+        val nextRisk = classifyUvRisk(nextHourUV)
         val phase: Phase = when {
-            currentUV < 6.0 && nextHourUV >= 6.0 -> Phase.Prelude
-            currentUV >= 6.0 -> Phase.InWindow
+            !currentRisk.isHigh() && nextRisk.isHigh() -> Phase.Prelude
+            currentRisk.isHigh() -> Phase.InWindow
             else -> return null
         }
 
-        val highForecasts = forecast.allDayForecasts.filter { it.uvIndex >= 6.0 }
+        val highForecasts = forecast.allDayForecasts.filter { classifyUvRisk(it.uvIndex).isHigh() }
         if (highForecasts.isEmpty()) return null
 
         val warnedAbout = buildWarnedAbout(highForecasts)
@@ -151,11 +157,11 @@ object NotificationDecider {
         }
         Phase.InWindow -> {
             val highHours = forecast.allDayForecasts.filter {
-                it.uvIndex >= 6.0 && it.hour >= currentHour
+                classifyUvRisk(it.uvIndex).isHigh() && it.hour >= currentHour
             }
             val firstH = highHours.firstOrNull()?.hour ?: currentHour
             val lastH = highHours.lastOrNull()?.hour ?: currentHour
-            val veryHigh = highHours.filter { it.uvIndex >= 8.0 }
+            val veryHigh = highHours.filter { classifyUvRisk(it.uvIndex).isVeryHigh() }
             val sentence1 = "Hohe UV-Strahlung zwischen ${"%02d".format(firstH)}:00 " +
                 "und ${"%02d".format(lastH + 1)}:00 Uhr."
             val sentence2 = if (veryHigh.isNotEmpty()) {
@@ -189,8 +195,8 @@ object NotificationDecider {
      * Describes the High UV Window(s) for today. See CONTEXT.md → "High UV Window".
      */
     private fun buildHighUVDescription(forecast: UVForecast): String {
-        val veryHighHours = forecast.allDayForecasts.filter { it.uvIndex >= 8 }.map { it.hour }
-        val highHours = forecast.allDayForecasts.filter { it.uvIndex in 6.0..<8.0 }.map { it.hour }
+        val veryHighHours = forecast.allDayForecasts.filter { classifyUvRisk(it.uvIndex).isVeryHigh() }.map { it.hour }
+        val highHours = forecast.allDayForecasts.filter { classifyUvRisk(it.uvIndex) == UvRisk.High }.map { it.hour }
 
         val parts = buildList {
             if (veryHighHours.isNotEmpty()) add("Sehr hohe Strahlung ${formatRanges(veryHighHours)}")
