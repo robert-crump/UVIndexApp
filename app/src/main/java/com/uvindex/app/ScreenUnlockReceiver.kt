@@ -7,7 +7,11 @@ import android.util.Log
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.util.WidgetUpdateHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * BroadcastReceiver that updates the widget on screen unlock and on boot
@@ -47,10 +51,17 @@ class ScreenUnlockReceiver : BroadcastReceiver() {
                 WidgetUpdateScheduler.triggerImmediateUpdate(context, forceRefresh = false)
 
                 // Re-schedule daily UV notification if enabled
-                val prefs = context.getSharedPreferences("uv_app_settings", Context.MODE_PRIVATE)
-                if (prefs.getBoolean("daily_notification_enabled", true)) {
-                    NotificationScheduler.scheduleDailyNotification(context)
-                    Log.d(TAG, "Daily notification re-scheduled after boot")
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val dailyEnabled = SharedPreferencesNotificationHistoryStore(context).snapshot().dailyEnabled
+                        if (dailyEnabled) {
+                            NotificationScheduler.scheduleDailyNotification(context)
+                            Log.d(TAG, "Daily notification re-scheduled after boot")
+                        }
+                    } finally {
+                        pendingResult.finish()
+                    }
                 }
             }
         }

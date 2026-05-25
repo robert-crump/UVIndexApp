@@ -278,3 +278,33 @@ No code path in the new module emits notification ID 3. The legacy
 - NotificationHistoryStoreTest: 13/13 passed (10 prior + 3 new setter tests, Robolectric)
 - NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
 - UvRiskTest: 9/9 passed (pure JVM, unchanged)
+
+---
+
+## Issue #13 — Notification preferences: ScreenUnlockReceiver reads dailyEnabled via NotificationHistoryStore
+
+### Status: COMPLETE
+
+### What was implemented
+
+**`ScreenUnlockReceiver.kt` — ACTION_BOOT_COMPLETED branch:**
+- Replaced direct `context.getSharedPreferences("uv_app_settings", …).getBoolean("daily_notification_enabled", true)` read with `SharedPreferencesNotificationHistoryStore(context).snapshot().dailyEnabled`.
+- Used `goAsync()` + `CoroutineScope(Dispatchers.IO).launch { … pendingResult.finish() }` pattern, matching `NotificationActionReceiver`.
+- `WidgetUpdateScheduler` calls remain synchronous (outside the coroutine) — they do not depend on the store.
+- Added imports: `SharedPreferencesNotificationHistoryStore`, `CoroutineScope`, `Dispatchers`, `launch`.
+
+**`SettingsActivity.kt` — initial state reads:**
+- Removed `val prefs = remember { context.getSharedPreferences("uv_app_settings", …) }` and its direct `getBoolean` reads.
+- `dailyNotificationEnabled` and `hourlyNotificationEnabled` now default to `true` and are populated by a `LaunchedEffect(Unit)` that calls `historyStore.snapshot()`.
+- Removed unused `import android.content.Context`.
+- No change to the write path (already routed through `historyStore` in #12).
+
+**Acceptance check:**
+- Project-wide grep for `"uv_app_settings"` returns matches only inside `SharedPreferencesNotificationHistoryStore` (constant declaration + kdoc comment). Zero matches in `ScreenUnlockReceiver` or `SettingsActivity`.
+
+### Test results
+47 tests run, 47 passed (0 failures) — no new tests (behavior change is manual-test-only per spec).
+- NotificationDeciderTest: 22/22 passed
+- NotificationHistoryStoreTest: 13/13 passed
+- NotificationDispatcherTest: 3/3 passed
+- UvRiskTest: 9/9 passed

@@ -1,6 +1,5 @@
 package com.uvindex.app
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,18 +46,16 @@ class SettingsActivity : ComponentActivity() {
 @Composable
 fun SettingsScreen(onBackPressed: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = remember {
-        context.getSharedPreferences("uv_app_settings", Context.MODE_PRIVATE)
-    }
     val historyStore = remember { SharedPreferencesNotificationHistoryStore(context) }
     val coroutineScope = rememberCoroutineScope()
 
-    var dailyNotificationEnabled by remember {
-        mutableStateOf(prefs.getBoolean("daily_notification_enabled", true))
-    }
+    var dailyNotificationEnabled by remember { mutableStateOf(true) }
+    var hourlyNotificationEnabled by remember { mutableStateOf(true) }
 
-    var hourlyNotificationEnabled by remember {
-        mutableStateOf(prefs.getBoolean("hourly_notification_enabled", true))
+    LaunchedEffect(Unit) {
+        val history = historyStore.snapshot()
+        dailyNotificationEnabled = history.dailyEnabled
+        hourlyNotificationEnabled = history.uvWarningEnabled
     }
 
     Scaffold(
