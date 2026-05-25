@@ -32,10 +32,10 @@ interface NotificationHistoryStore {
      */
     suspend fun markUvWarningDisabledToday()
 
-    /** Updates the daily notification enabled flag in the umbrella prefs (and mirrors to legacy key). */
+    /** Updates the daily notification enabled flag in the umbrella prefs and purges the legacy settings keys. */
     suspend fun setDailyEnabled(enabled: Boolean)
 
-    /** Updates the UV warning enabled flag in the umbrella prefs (and mirrors to legacy key). */
+    /** Updates the UV warning enabled flag in the umbrella prefs and purges the legacy settings keys. */
     suspend fun setUvWarningEnabled(enabled: Boolean)
 }
 
@@ -176,14 +176,19 @@ class SharedPreferencesNotificationHistoryStore(
 
     override suspend fun setDailyEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
         prefs.edit().putBoolean(KEY_DAILY_ENABLED, enabled).apply()
-        context.getSharedPreferences(PREFS_LEGACY_SETTINGS, Context.MODE_PRIVATE)
-            .edit().putBoolean(LEGACY_DAILY_ENABLED, enabled).apply()
+        purgeSettingsKeys()
     }
 
     override suspend fun setUvWarningEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
         prefs.edit().putBoolean(KEY_UV_WARNING_ENABLED, enabled).apply()
-        context.getSharedPreferences(PREFS_LEGACY_SETTINGS, Context.MODE_PRIVATE)
-            .edit().putBoolean(LEGACY_UV_WARNING_ENABLED, enabled).apply()
+        purgeSettingsKeys()
+    }
+
+    private fun purgeSettingsKeys() {
+        context.getSharedPreferences(PREFS_LEGACY_SETTINGS, Context.MODE_PRIVATE).edit()
+            .remove(LEGACY_DAILY_ENABLED)
+            .remove(LEGACY_UV_WARNING_ENABLED)
+            .apply()
     }
 
     companion object {
@@ -200,7 +205,8 @@ class SharedPreferencesNotificationHistoryStore(
         private const val KEY_WARNED_ABOUT_FIRST_HIGH_HOUR = "warned_about_first_high_hour"
         private const val KEY_WARNED_ABOUT_HIGH_HOURS = "warned_about_high_hours"
 
-        // Legacy SharedPreferences locations (purged from uv_notifications on first record())
+        // Legacy SharedPreferences locations
+        // uv_notifications keys purged on first record(); uv_app_settings keys purged on first setter call
         private const val PREFS_LEGACY_NOTIFICATIONS = "uv_notifications"
         private const val PREFS_LEGACY_SETTINGS = "uv_app_settings"
         private const val LEGACY_DAILY_SENT_DATE = "daily_sent_date"

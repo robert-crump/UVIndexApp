@@ -227,6 +227,7 @@ class NotificationHistoryStoreTest {
     @Test
     fun `setDailyEnabled false is reflected in next snapshot`() = runTest {
         val store = SharedPreferencesNotificationHistoryStore(context)
+        store.snapshot() // trigger migration before user can toggle (matches SettingsActivity LaunchedEffect)
         store.setDailyEnabled(false)
         assertFalse("dailyEnabled should be false after setDailyEnabled(false)", store.snapshot().dailyEnabled)
     }
@@ -234,25 +235,53 @@ class NotificationHistoryStoreTest {
     @Test
     fun `setUvWarningEnabled false is reflected in next snapshot`() = runTest {
         val store = SharedPreferencesNotificationHistoryStore(context)
+        store.snapshot() // trigger migration before user can toggle (matches SettingsActivity LaunchedEffect)
         store.setUvWarningEnabled(false)
         assertFalse("uvWarningEnabled should be false after setUvWarningEnabled(false)", store.snapshot().uvWarningEnabled)
     }
 
     @Test
-    fun `setters mirror values to legacy uv_app_settings keys`() = runTest {
-        val store = SharedPreferencesNotificationHistoryStore(context)
-        store.setDailyEnabled(false)
-        store.setUvWarningEnabled(false)
-
+    fun `setDailyEnabled purges both legacy settings keys from uv_app_settings`() = runTest {
         val settingsPrefs = context.getSharedPreferences("uv_app_settings", Context.MODE_PRIVATE)
-        assertFalse(
-            "legacy daily_notification_enabled should mirror setter value",
-            settingsPrefs.getBoolean("daily_notification_enabled", true),
-        )
-        assertFalse(
-            "legacy hourly_notification_enabled should mirror setter value",
-            settingsPrefs.getBoolean("hourly_notification_enabled", true),
-        )
+        settingsPrefs.edit()
+            .putBoolean("daily_notification_enabled", false)
+            .putBoolean("hourly_notification_enabled", true)
+            .commit()
+
+        SharedPreferencesNotificationHistoryStore(context).setDailyEnabled(true)
+
+        assertFalse("daily_notification_enabled should be purged after setDailyEnabled", settingsPrefs.contains("daily_notification_enabled"))
+        assertFalse("hourly_notification_enabled should be purged after setDailyEnabled", settingsPrefs.contains("hourly_notification_enabled"))
+    }
+
+    @Test
+    fun `setUvWarningEnabled purges both legacy settings keys from uv_app_settings`() = runTest {
+        val settingsPrefs = context.getSharedPreferences("uv_app_settings", Context.MODE_PRIVATE)
+        settingsPrefs.edit()
+            .putBoolean("daily_notification_enabled", true)
+            .putBoolean("hourly_notification_enabled", false)
+            .commit()
+
+        SharedPreferencesNotificationHistoryStore(context).setUvWarningEnabled(true)
+
+        assertFalse("daily_notification_enabled should be purged after setUvWarningEnabled", settingsPrefs.contains("daily_notification_enabled"))
+        assertFalse("hourly_notification_enabled should be purged after setUvWarningEnabled", settingsPrefs.contains("hourly_notification_enabled"))
+    }
+
+    @Test
+    fun `snapshot alone does not touch legacy settings keys`() = runTest {
+        val settingsPrefs = context.getSharedPreferences("uv_app_settings", Context.MODE_PRIVATE)
+        settingsPrefs.edit()
+            .putBoolean("daily_notification_enabled", false)
+            .putBoolean("hourly_notification_enabled", false)
+            .commit()
+
+        val store = SharedPreferencesNotificationHistoryStore(context)
+        store.snapshot()
+        store.snapshot()
+
+        assertTrue("daily_notification_enabled should survive snapshot-only calls", settingsPrefs.contains("daily_notification_enabled"))
+        assertTrue("hourly_notification_enabled should survive snapshot-only calls", settingsPrefs.contains("hourly_notification_enabled"))
     }
 
     @Test

@@ -308,3 +308,36 @@ No code path in the new module emits notification ID 3. The legacy
 - NotificationHistoryStoreTest: 13/13 passed
 - NotificationDispatcherTest: 3/3 passed
 - UvRiskTest: 9/9 passed
+
+---
+
+## Issue #14 — Notification preferences: purge legacy daily_notification_enabled / hourly_notification_enabled keys
+
+### Status: COMPLETE
+
+### What was implemented
+
+**`NotificationHistoryStore.kt`:**
+- Removed legacy mirror writes from `setDailyEnabled` and `setUvWarningEnabled` — both now write only to the umbrella prefs.
+- Added `purgeSettingsKeys()` private method: removes `LEGACY_DAILY_ENABLED` (`daily_notification_enabled`) and `LEGACY_UV_WARNING_ENABLED` (`hourly_notification_enabled`) from `uv_app_settings` via a single `edit().remove().remove().apply()` chain.
+- Both `setDailyEnabled` and `setUvWarningEnabled` call `purgeSettingsKeys()` after their umbrella write. Subsequent calls are idempotent (removing absent keys is a no-op).
+- Updated kdoc for both setters ("purges the legacy settings keys" instead of "mirrors to legacy key").
+- Updated companion object comment to document both purge triggers.
+- Migration code (`migrate()`) is unchanged — it still reads `LEGACY_DAILY_ENABLED` and `LEGACY_UV_WARNING_ENABLED` as part of the one-time upgrade path.
+
+**`NotificationHistoryStoreTest.kt`:**
+- Updated `setDailyEnabled false is reflected in next snapshot` and `setUvWarningEnabled false is reflected in next snapshot` (from #12) to call `snapshot()` before the setter, matching the realistic call order (SettingsActivity's `LaunchedEffect` loads state before the user can toggle). Previously these tests passed because the setters mirrored to legacy prefs, which migration then re-read; without the mirror, snapshot's first call runs migration first and would overwrite.
+- Replaced `setters mirror values to legacy uv_app_settings keys` with three new tests:
+  - `setDailyEnabled purges both legacy settings keys from uv_app_settings` — seeds both keys, calls setter, asserts neither remains.
+  - `setUvWarningEnabled purges both legacy settings keys from uv_app_settings` — same for UV warning setter.
+  - `snapshot alone does not touch legacy settings keys` — seeds both keys, calls `snapshot()` twice, asserts keys survive.
+
+**Acceptance check:**
+- Project-wide grep for `daily_notification_enabled` and `hourly_notification_enabled` in production code returns matches only in `NotificationHistoryStore.kt` (migration constants + purge constants). Zero matches elsewhere.
+
+### Test results
+49 tests run, 49 passed (0 failures).
+- NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
+- NotificationHistoryStoreTest: 15/15 passed (13 prior + 2 new purge tests + 1 snapshot-isolation test, Robolectric)
+- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
+- UvRiskTest: 9/9 passed (pure JVM, unchanged)
