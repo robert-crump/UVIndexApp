@@ -14,8 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.ui.theme.UVIndexTheme
 import com.uvindex.app.widget.NotificationScheduler
+import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +50,8 @@ fun SettingsScreen(onBackPressed: () -> Unit) {
     val prefs = remember {
         context.getSharedPreferences("uv_app_settings", Context.MODE_PRIVATE)
     }
+    val historyStore = remember { SharedPreferencesNotificationHistoryStore(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var dailyNotificationEnabled by remember {
         mutableStateOf(prefs.getBoolean("daily_notification_enabled", true))
@@ -117,7 +121,7 @@ fun SettingsScreen(onBackPressed: () -> Unit) {
                     checked = dailyNotificationEnabled,
                     onCheckedChange = { enabled ->
                         dailyNotificationEnabled = enabled
-                        prefs.edit().putBoolean("daily_notification_enabled", enabled).apply()
+                        coroutineScope.launch { historyStore.setDailyEnabled(enabled) }
                         if (enabled) NotificationScheduler.scheduleDailyNotification(context)
                         else NotificationScheduler.cancelDailyNotification(context)
                     },
@@ -153,7 +157,7 @@ fun SettingsScreen(onBackPressed: () -> Unit) {
                     checked = hourlyNotificationEnabled,
                     onCheckedChange = { enabled ->
                         hourlyNotificationEnabled = enabled
-                        prefs.edit().putBoolean("hourly_notification_enabled", enabled).apply()
+                        coroutineScope.launch { historyStore.setUvWarningEnabled(enabled) }
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.onPrimary,

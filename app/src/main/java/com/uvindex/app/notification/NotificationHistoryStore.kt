@@ -31,6 +31,12 @@ interface NotificationHistoryStore {
      * Exercised in Slice 2.
      */
     suspend fun markUvWarningDisabledToday()
+
+    /** Updates the daily notification enabled flag in the umbrella prefs (and mirrors to legacy key). */
+    suspend fun setDailyEnabled(enabled: Boolean)
+
+    /** Updates the UV warning enabled flag in the umbrella prefs (and mirrors to legacy key). */
+    suspend fun setUvWarningEnabled(enabled: Boolean)
 }
 
 /**
@@ -166,6 +172,18 @@ class SharedPreferencesNotificationHistoryStore(
         prefs.edit()
             .putString(KEY_UV_WARNING_DISABLED_ON, LocalDate.now().toString())
             .apply()
+    }
+
+    override suspend fun setDailyEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
+        prefs.edit().putBoolean(KEY_DAILY_ENABLED, enabled).apply()
+        context.getSharedPreferences(PREFS_LEGACY_SETTINGS, Context.MODE_PRIVATE)
+            .edit().putBoolean(LEGACY_DAILY_ENABLED, enabled).apply()
+    }
+
+    override suspend fun setUvWarningEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
+        prefs.edit().putBoolean(KEY_UV_WARNING_ENABLED, enabled).apply()
+        context.getSharedPreferences(PREFS_LEGACY_SETTINGS, Context.MODE_PRIVATE)
+            .edit().putBoolean(LEGACY_UV_WARNING_ENABLED, enabled).apply()
     }
 
     companion object {

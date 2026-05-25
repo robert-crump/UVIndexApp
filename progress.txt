@@ -243,3 +243,38 @@ No code path in the new module emits notification ID 3. The legacy
 - NotificationDeciderTest: 22/22 passed (pure JVM, all existing cases pass with no behavior change)
 - NotificationHistoryStoreTest: 10/10 passed (Robolectric, unchanged)
 - NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
+
+---
+
+## Issue #12 — Notification preferences: route SettingsActivity toggles through NotificationHistoryStore
+
+### Status: COMPLETE
+
+### What was implemented
+
+**`NotificationHistoryStore.kt` — interface additions:**
+- Added `setDailyEnabled(enabled: Boolean)` and `setUvWarningEnabled(enabled: Boolean)` (suspending) to the `NotificationHistoryStore` interface.
+
+**`SharedPreferencesNotificationHistoryStore` — implementations:**
+- `setDailyEnabled`: writes `KEY_DAILY_ENABLED` to umbrella prefs AND mirrors `LEGACY_DAILY_ENABLED` to `uv_app_settings`.
+- `setUvWarningEnabled`: writes `KEY_UV_WARNING_ENABLED` to umbrella prefs AND mirrors `LEGACY_UV_WARNING_ENABLED` to `uv_app_settings`.
+- Both use `withContext(Dispatchers.IO)` matching the existing `record()` / `markUvWarningDisabledToday()` pattern.
+
+**`SettingsActivity.kt`:**
+- Added `val historyStore = remember { SharedPreferencesNotificationHistoryStore(context) }`.
+- Added `val coroutineScope = rememberCoroutineScope()`.
+- Daily Switch `onCheckedChange`: replaced `prefs.edit().putBoolean("daily_notification_enabled", enabled).apply()` with `coroutineScope.launch { historyStore.setDailyEnabled(enabled) }`. Scheduler calls unchanged.
+- UV Warning Switch `onCheckedChange`: replaced `prefs.edit().putBoolean("hourly_notification_enabled", enabled).apply()` with `coroutineScope.launch { historyStore.setUvWarningEnabled(enabled) }`.
+- Initial state reads (`prefs.getBoolean(...)`) left as-is — cleaned up in follow-up slices.
+
+**`NotificationHistoryStoreTest.kt` — 3 new tests (Issue #12 section):**
+- `setDailyEnabled false is reflected in next snapshot` — calls setter, asserts `snapshot().dailyEnabled == false`.
+- `setUvWarningEnabled false is reflected in next snapshot` — calls setter, asserts `snapshot().uvWarningEnabled == false`.
+- `setters mirror values to legacy uv_app_settings keys` — calls both setters with `false`, asserts both legacy keys updated in `uv_app_settings`.
+
+### Test results
+47 tests run, 47 passed (0 failures).
+- NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
+- NotificationHistoryStoreTest: 13/13 passed (10 prior + 3 new setter tests, Robolectric)
+- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
+- UvRiskTest: 9/9 passed (pure JVM, unchanged)
