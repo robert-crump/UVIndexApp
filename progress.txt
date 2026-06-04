@@ -389,3 +389,34 @@ and last-known null). Removed the now-unused `resumeWithException` import.
 ### Test results
 All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
 Only warnings are pre-existing Geocoder deprecation warnings.
+
+---
+
+## Issue #10 — Temperature diagram: Sufficiently large y-axis
+
+### Status: COMPLETE
+
+### What was implemented
+
+**`WeatherRepository.kt`:**
+- Added `import kotlin.math.roundToInt`.
+- Temperature is now rounded to the nearest integer at parse time:
+  `temperature = response.hourly.temperature[index].roundToInt().toDouble()`
+  This prevents 24.7°C being treated as 24°C downstream (truncation bug).
+
+**`UVChartComposables.kt`:**
+- Added `import kotlin.math.ceil`, `import kotlin.math.floor`, `import kotlin.math.roundToInt`.
+- Replaced the old y-axis bounds logic with the correct algorithm:
+  - `yAxisMin`: if `minTemp % 5 == 0` → `minTemp - 5`; else `floor(minTemp / 5.0) * 5`
+  - `yAxisMax`: if `maxTemp % 5 == 0` → `maxTemp + 5`; else `ceil(maxTemp / 5.0) * 5`
+- Changed `entries.minOfOrNull { it.y }?.toInt()` to `?.roundToInt()` for correctness.
+
+**Examples verified:**
+- max = 25°C (multiple of 5) → y-axis max = 30°C ✓
+- max = 24.7°C → rounds to 25 → y-axis max = 30°C ✓
+- max = 24°C → y-axis max = 25°C ✓
+- min = 10°C (multiple of 5) → y-axis min = 5°C ✓
+- min = 13°C → y-axis min = 10°C ✓
+
+### Test results
+All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
