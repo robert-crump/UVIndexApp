@@ -15,7 +15,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -33,6 +32,15 @@ class LocationService(private val context: Context) {
             return null
         }
 
+        // Try a fresh fix first. In the background (e.g. WorkManager) this often
+        // returns null or fails, so fall back to the device's last known location,
+        // which the system / other apps keep current. Returning that lets background
+        // workers detect a real location change instead of being stuck re-fetching
+        // our own stale stored coordinates.
+        return requestFreshLocation() ?: getLastKnownLocation()
+    }
+
+    private suspend fun requestFreshLocation(): Location? {
         return suspendCancellableCoroutine { continuation ->
             val cancellationTokenSource = CancellationTokenSource()
 
@@ -41,13 +49,25 @@ class LocationService(private val context: Context) {
                 cancellationTokenSource.token
             ).addOnSuccessListener { location ->
                 continuation.resume(location)
-            }.addOnFailureListener { exception ->
-                continuation.resumeWithException(exception)
+            }.addOnFailureListener {
+                continuation.resume(null)
             }
 
             continuation.invokeOnCancellation {
                 cancellationTokenSource.cancel()
             }
+        }
+    }
+
+    private suspend fun getLastKnownLocation(): Location? {
+        return suspendCancellableCoroutine { continuation ->
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location ->
+                    continuation.resume(location)
+                }
+                .addOnFailureListener {
+                    continuation.resume(null)
+                }
         }
     }
 

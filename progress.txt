@@ -341,3 +341,51 @@ No code path in the new module emits notification ID 3. The legacy
 - NotificationHistoryStoreTest: 15/15 passed (13 prior + 2 new purge tests + 1 snapshot-isolation test, Robolectric)
 - NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
 - UvRiskTest: 9/9 passed (pure JVM, unchanged)
+
+---
+
+## Issue #1 — Location change not recognized (background worker)
+
+### Status: COMPLETE
+
+### Root cause
+Background workers (WidgetUpdateWorker, HourlyUpdateWorker, periodic updates) all
+refresh data via `WeatherRepository.getUVForecast()`, which calls
+`LocationService.getCurrentLocation()`. That method only used
+`FusedLocationProviderClient.getCurrentLocation(PRIORITY_BALANCED_POWER_ACCURACY)`,
+which in the background frequently resolves to null (or failed and threw). On null,
+`WeatherRepository.getUVForecast()` falls back to the *stored old coordinates*
+(WeatherRepository.kt:48-54) and re-fetches the OLD city — so a >15km move was never
+detected by any background worker. The CacheManager 15km threshold was fine; the
+workers simply never had a fresh location to compare. It only self-corrected when the
+user opened the app (foreground fix succeeds), matching the reported "~9 hours" and
+"opening the app fixed it" symptom. The stale widget "(city)" label was the visible
+side effect of the stale cached forecast.
+
+### What was implemented
+`LocationService.getCurrentLocation()` now falls back to the device's last known
+location before giving up:
+- `requestFreshLocation()` — the original `getCurrentLocation(...)` fresh-fix path,
+  but failures now `resume(null)` instead of `resumeWithException` (so a transient
+  failure no longer bubbles up and forces the stored-coords fallback).
+- `getLastKnownLocation()` — new fallback using `fusedLocationClient.lastLocation`,
+  which the system / other apps keep current, so it reflects a real location change.
+- `getCurrentLocation()` = `requestFreshLocation() ?: getLastKnownLocation()`.
+The repository's stored-coordinates fallback is now a genuine last resort (both fresh
+and last-known null). Removed the now-unused `resumeWithException` import.
+
+### Clarification gathered (AskUserQuestion)
+- Symptom scope: not sure if numbers were stale; label was wrong.
+- Opening the app fixed it → foreground works, background does not.
+- Move was to a different city (>15km) → distance threshold not the issue.
+
+### Notes / not done
+- `LocationService` wraps a `FusedLocationProviderClient` created in its constructor,
+  so there is no unit-test seam; adding one needs a DI refactor (out of scope for this
+  single fix). No new test added; existing suite re-run to guard against regressions.
+- Pre-existing uncommitted UVWidget.kt label tweak ("UV-Index (city)" -> "city") left
+  untouched in the working tree; it is cosmetic and unrelated to this root-cause fix.
+
+### Test results
+All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
+Only warnings are pre-existing Geocoder deprecation warnings.
