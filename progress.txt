@@ -392,6 +392,42 @@ Only warnings are pre-existing Geocoder deprecation warnings.
 
 ---
 
+## Issue #15 — Consistent Max. UV hour
+
+### Status: COMPLETE
+
+### Root cause
+`parseWeatherResponse()` stored raw float UV indices (e.g., 6.1, 5.8, 6.4) in `HourlyForecast.uvIndex`.
+The UI and chart displayed them as integers via `.toInt()` (truncation), so 1 PM (UV=5.8→5),
+2 PM (UV=6.1→6), and 4 PM (UV=6.4→6) could all show "6" in the diagram — but `maxByOrNull { it.uvIndex }`
+found 4 PM as the float maximum and set `maxHourToday = 4`, not 1 PM (the first hour displaying UV=6).
+Temperature had already been rounded at parse time since issue #10; UV was not.
+
+### What was implemented
+
+**`WeatherRepository.kt`** — one-line fix in `parseWeatherResponse()`:
+- `uvIndex = response.hourly.uvIndex[index].roundToInt().toDouble()`
+  (same pattern as the temperature rounding from issue #10; `roundToInt` import was already present).
+
+With rounded values, `maxByOrNull { it.uvIndex }` on tied hours returns the **first** element
+(Kotlin's implementation uses strict `<`, so equal values keep the earlier element). This matches
+the spec: "if several hours have the same highest UV index, the tile should reflect the first of those hours."
+
+`reParseWithCurrentTime()` reads `allDayForecasts` from cache (which is now stored with rounded values),
+so the same guarantee holds for re-parses.
+
+No new tests — `parseWeatherResponse` and `reParseWithCurrentTime` are private and have no JVM-testable
+seam without DI refactoring. All 49 existing tests pass (no regressions).
+
+### Test results
+All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
+- NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
+- NotificationHistoryStoreTest: 15/15 passed (Robolectric, unchanged)
+- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
+- UvRiskTest: 9/9 passed (pure JVM, unchanged)
+
+---
+
 ## Issue #10 — Temperature diagram: Sufficiently large y-axis
 
 ### Status: COMPLETE

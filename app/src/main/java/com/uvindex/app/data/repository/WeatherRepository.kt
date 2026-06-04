@@ -291,7 +291,7 @@ class WeatherRepository(context: Context) {
             HourlyForecast(
                 time = timeStr,
                 hour = dateTime.hour,
-                uvIndex = response.hourly.uvIndex[index],
+                uvIndex = response.hourly.uvIndex[index].roundToInt().toDouble(),
                 temperature = response.hourly.temperature[index].roundToInt().toDouble()
             )
         }

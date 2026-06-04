@@ -144,7 +144,7 @@ class UVWidget : AppWidgetProvider() {
                 result.fold(
                     onSuccess = { forecast ->
                         val locationText = if (!forecast.locationName.isNullOrEmpty()) {
-                            "UV-Index (${forecast.locationName})"
+                            "${forecast.locationName}"
                         } else {
                             "UV-Index"
                         }
