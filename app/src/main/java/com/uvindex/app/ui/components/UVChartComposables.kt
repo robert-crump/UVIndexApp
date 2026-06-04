@@ -3,6 +3,9 @@ package com.uvindex.app.ui.components
 import android.graphics.Color
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.roundToInt
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -278,23 +281,16 @@ fun TemperatureLineChart(
             chart.data = lineData
 
             // Calculate min/max for Y-axis scaling
-            val minTemp = entries.minOfOrNull { it.y }?.toInt() ?: 0
-            val maxTemp = entries.maxOfOrNull { it.y }?.toInt() ?: 30
+            val minTemp = entries.minOfOrNull { it.y }?.roundToInt() ?: 0
+            val maxTemp = entries.maxOfOrNull { it.y }?.roundToInt() ?: 30
 
-            // Round to nearest 5-step intervals (no extra step)
-            // For minTemp: round DOWN (floor) - e.g. 12°C → 10°C, -4°C → -5°C
-            val yAxisMin = if (minTemp >= 0) {
-                (minTemp / 5) * 5
-            } else {
-                ((minTemp - 4) / 5) * 5  // Correctly floors negative numbers
-            }
+            // If temp is an exact multiple of 5, add one extra step so data points
+            // aren't clipped against the axis boundary (e.g. 25°C → max 30°C).
+            val yAxisMin = if (minTemp % 5 == 0) minTemp - 5
+                           else (floor(minTemp / 5.0) * 5).toInt()
 
-            // For maxTemp: round UP (ceil) - e.g. 22°C → 25°C, 33°C → 35°C
-            val yAxisMax = if (maxTemp >= 0) {
-                ((maxTemp + 4) / 5) * 5
-            } else {
-                (maxTemp / 5) * 5
-            }
+            val yAxisMax = if (maxTemp % 5 == 0) maxTemp + 5
+                           else (ceil(maxTemp / 5.0) * 5).toInt()
 
             chart.axisLeft.apply {
                 axisMinimum = yAxisMin.toFloat()

@@ -10,6 +10,7 @@ import com.uvindex.app.data.model.HourlyForecast
 import com.uvindex.app.data.model.TimeSlot
 import com.uvindex.app.data.model.UVForecast
 import com.uvindex.app.util.CacheManager
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -291,7 +292,7 @@ class WeatherRepository(context: Context) {
                 time = timeStr,
                 hour = dateTime.hour,
                 uvIndex = response.hourly.uvIndex[index],
-                temperature = response.hourly.temperature[index]
+                temperature = response.hourly.temperature[index].roundToInt().toDouble()
             )
         }
 
