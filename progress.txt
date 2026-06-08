@@ -1,3 +1,31 @@
+## Issue #16 — Long loading times
+
+### Status: COMPLETE
+
+### Root cause
+`LocationService.getCurrentLocation()` called `fusedLocationClient.getCurrentLocation()`
+(`requestFreshLocation()`) with no timeout. On the reported run the fused provider hung
+for 20+ seconds before the app could even check the cache, so the loading spinner stayed
+up the whole time — and once it returned, the location had moved enough (or enough time
+had passed) to also trigger a background refresh, which is why the displayed
+`lastUpdateTime` jumped from 06:48 → 07:02 without a manual pull-to-refresh.
+
+### What was implemented
+**`LocationService.kt`:**
+- Added `FRESH_LOCATION_TIMEOUT_MS = 5_000L` and wrapped `requestFreshLocation()` in
+  `withTimeoutOrNull(...)`. If the fused provider doesn't answer within 5s, we fall back
+  to `getLastKnownLocation()` immediately (same fallback chain as before, just bounded).
+  `withTimeoutOrNull` cancels the inner coroutine on timeout, which triggers the existing
+  `continuation.invokeOnCancellation { cancellationTokenSource.cancel() }`, so the
+  in-flight fused-location request is properly cancelled rather than left running.
+
+### Test results
+`:app:testDebugUnitTest` — all existing tests pass (no LocationService unit tests exist,
+as `FusedLocationProviderClient` is a final Play Services class that isn't practical to
+fake without a larger DI refactor; the fix is a minimal, localized timeout).
+
+---
+
 ## Issue #6 — Notification module foundation + Daily Forecast channel
 
 ### Status: COMPLETE

@@ -13,6 +13,7 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.math.atan2
@@ -21,6 +22,13 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 class LocationService(private val context: Context) {
+
+    companion object {
+        // The fused provider can hang far longer than users are willing to wait for a
+        // fresh GPS/network fix (observed >20s with no result). Cap it so we fall back
+        // to the last known / stored location quickly instead of stalling the UI.
+        private const val FRESH_LOCATION_TIMEOUT_MS = 5_000L
+    }
 
     private val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
@@ -37,7 +45,8 @@ class LocationService(private val context: Context) {
         // which the system / other apps keep current. Returning that lets background
         // workers detect a real location change instead of being stuck re-fetching
         // our own stale stored coordinates.
-        return requestFreshLocation() ?: getLastKnownLocation()
+        return withTimeoutOrNull(FRESH_LOCATION_TIMEOUT_MS) { requestFreshLocation() }
+            ?: getLastKnownLocation()
     }
 
     private suspend fun requestFreshLocation(): Location? {
