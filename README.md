@@ -24,6 +24,21 @@ Eine Android-App zur Überwachung des UV-Index am aktuellen Standort – mit Wid
 - Wetterdaten-Cache (3 Stunden), Update nur bei Standortwechsel > 20 km
 - Offline-Modus mit gecachten Daten
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/Screenshot_3.png" width="200" alt="Hauptbildschirm mit UV-Index, Tagesmaximum und Temperatur"></td>
+    <td><img src="docs/screenshots/Screenshot_4.png" width="200" alt="Stündlicher UV-Index-Verlauf als Diagramm"></td>
+    <td><img src="docs/screenshots/Screenshot_5.png" width="200" alt="Temperaturverlauf als Diagramm"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/Screenshot_1.png" width="200" alt="Erklärung der UV-Index-Skala"></td>
+    <td><img src="docs/screenshots/Screenshot_2.png" width="200" alt="Einstellungen für Benachrichtigungen"></td>
+    <td></td>
+  </tr>
+</table>
+
 ## Technologie-Stack
 
 | Bereich | Technologie |
