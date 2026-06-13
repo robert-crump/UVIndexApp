@@ -89,6 +89,21 @@ class WidgetUpdateWorker(
             Log.w(TAG, "UVWidgetMax not found or update failed: ${e.message}")
         }
 
+        // Update 1x1 Wind Widget (falls vorhanden)
+        try {
+            val windWidgetIntent = Intent(applicationContext, WindWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            val windWidgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(applicationContext, WindWidget::class.java)
+            )
+            windWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, windWidgetIds)
+            applicationContext.sendBroadcast(windWidgetIntent)
+            Log.d(TAG, "WindWidget updated (${windWidgetIds.size} instances)")
+        } catch (e: Exception) {
+            Log.w(TAG, "WindWidget not found or update failed: ${e.message}")
+        }
+
         Log.d(TAG, "All widgets updated")
     }
 }

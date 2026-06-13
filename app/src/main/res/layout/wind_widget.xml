@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wind_widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="4dp"
+    android:background="@drawable/widget_max_background">
+
+    <ImageView
+        android:id="@+id/wind_widget_arrow"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_wind_arrow_n"
+        android:contentDescription="@string/wind_widget_description" />
+
+    <TextView
+        android:id="@+id/wind_widget_speed"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="-- km/h"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:gravity="center" />
+
+</LinearLayout>

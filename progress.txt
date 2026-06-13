@@ -1,3 +1,77 @@
+## Issue #20 — Wind Widget (1x1) on the home screen
+
+### Status: COMPLETE
+
+### Parent
+#18 — Wind widget (1x1). This is Slice 2 of 2, built on top of #19's wind
+data path and `travelOctant` helper.
+
+### What was implemented
+
+**New base arrow drawable + 8 pre-rotated wrappers (`app/src/main/res/drawable/`):**
+- `ic_wind_arrow.xml` — single vector arrow shape pointing North (up), `fillColor="#333333"`
+  (matches the existing widget label text color, per the issue's tinting decision).
+- `ic_wind_arrow_n.xml` / `_ne` / `_e` / `_se` / `_s` / `_sw` / `_w` / `_nw.xml` — each a
+  `<rotate>` wrapper around `ic_wind_arrow` with `fromDegrees`/`toDegrees` set to the
+  octant's clockwise angle (N=0°, NE=45°, ..., NW=315°), `pivotX/Y=50%`. RemoteViews selects
+  one of these eight static drawables via `setImageViewResource` — no runtime `setRotation`,
+  as required (RemoteViews ImageViews don't support it reliably).
+
+**New layout `app/src/main/res/layout/wind_widget.xml`:**
+- 1x1 vertical `LinearLayout` (`wind_widget_container`, reuses `widget_max_background`):
+  `ImageView` (`wind_widget_arrow`, 24dp, defaults to `ic_wind_arrow_n`) above a `TextView`
+  (`wind_widget_speed`, "-- km/h", 12sp bold, `#333333`). No refresh button, no spinner —
+  matches the issue's "intentionally minimal" requirement.
+
+**New widget provider `app/src/main/java/com/uvindex/app/widget/WindWidget.kt`:**
+- `arrowDrawableFor(CompassOctant): Int` — exhaustive `when` mapping each of the 8
+  `CompassOctant` values (from #19's `com.uvindex.app.wind` package) to its pre-rotated
+  drawable resource.
+- `updateAppWidget()`: sets the whole-widget click to open `MainActivity` (same pattern as
+  `UVWidgetMax`), then on `Dispatchers.Main` calls
+  `WeatherRepository.getCachedForecastForWidget()` (cache-only, no location access, same as
+  other widgets). On success: reads `forecast.currentHour.windSpeed` /
+  `.windDirection`, computes `travelOctant(windDirection)`, sets the speed text to
+  `"<rounded speed> km/h"` and the arrow image via `arrowDrawableFor(octant)`. On failure or
+  exception: falls back to `"-- km/h"` and the North arrow.
+- `onUpdate` / `onReceive` follow the existing `AppWidgetProvider` pattern (only
+  `ACTION_APPWIDGET_UPDATE`, no custom refresh action — updates arrive via the scheduled
+  widget-update path).
+
+**New `app/src/main/res/xml/wind_widget_info.xml`:**
+- `appwidget-provider`: `minWidth/minHeight=40dp` (1x1 cell), `initialLayout=@layout/wind_widget`,
+  `updatePeriodMillis=1800000`, `resizeMode="horizontal|vertical"`, `widgetCategory="home_screen"`,
+  `description=@string/wind_widget_description`. Same shape as `uv_widget_max_info.xml`.
+
+**`AndroidManifest.xml`:**
+- Registered `.widget.WindWidget` as an exported receiver with an `APPWIDGET_UPDATE`
+  intent-filter and `android.appwidget.provider` meta-data pointing at `wind_widget_info.xml`
+  — makes it appear in the launcher's widget picker.
+
+**`strings.xml`:**
+- Added `wind_widget_description` ("Zeigt die aktuelle Windrichtung und -geschwindigkeit"),
+  used for both the widget picker description and the arrow `ImageView`'s
+  `contentDescription`.
+
+**`WidgetUpdateWorker.kt`:**
+- `updateAllWidgets()` now also broadcasts `ACTION_APPWIDGET_UPDATE` to `WindWidget`
+  instances (wrapped in try/catch like the `UVWidgetMax` block, so a missing widget doesn't
+  fail the worker) — the widget refreshes via the existing scheduled path, no per-widget
+  refresh button.
+
+### Notes / not done
+- No new unit tests: the widget provider only orchestrates RemoteViews calls and the
+  cache-read repository call (same untestable-without-DI shape as `UVWidgetMax`); the
+  underlying `travelOctant` octant math is already fully covered by `WindDirectionTest`
+  from #19. Verified via clean compile (`compileDebugKotlin`), full green suite
+  (`testDebugUnitTest`), and a successful `assembleDebug`.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all 60 existing tests still pass (no new tests
+added; behavior is widget-orchestration only). `:app:assembleDebug` — BUILD SUCCESSFUL.
+
+---
+
 ## Issue #19 — Wind data flows into the forecast
 
 ### Status: COMPLETE
