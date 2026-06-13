@@ -16,5 +16,9 @@ data class HourlyData(
     @SerialName("uv_index")
     val uvIndex: List<Double>,
     @SerialName("temperature_2m")
-    val temperature: List<Double>
+    val temperature: List<Double>,
+    @SerialName("windspeed_10m")
+    val windSpeed: List<Double> = emptyList(),
+    @SerialName("winddirection_10m")
+    val windDirection: List<Double> = emptyList()
 )

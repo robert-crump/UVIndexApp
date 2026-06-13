@@ -24,7 +24,9 @@ data class HourlyForecast(
     val time: String,
     val hour: Int,
     val uvIndex: Double,
-    val temperature: Double
+    val temperature: Double,
+    val windSpeed: Double = 0.0,      // km/h, rounded; 0.0 default keeps old caches deserializable
+    val windDirection: Double = 0.0   // source bearing in degrees (where the wind comes FROM)
 )
 
 @Serializable

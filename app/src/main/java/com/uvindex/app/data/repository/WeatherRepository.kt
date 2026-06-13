@@ -292,7 +292,9 @@ class WeatherRepository(context: Context) {
                 time = timeStr,
                 hour = dateTime.hour,
                 uvIndex = response.hourly.uvIndex[index].roundToInt().toDouble(),
-                temperature = response.hourly.temperature[index].roundToInt().toDouble()
+                temperature = response.hourly.temperature[index].roundToInt().toDouble(),
+                windSpeed = response.hourly.windSpeed.getOrNull(index)?.roundToInt()?.toDouble() ?: 0.0,
+                windDirection = response.hourly.windDirection.getOrNull(index) ?: 0.0
             )
         }
 

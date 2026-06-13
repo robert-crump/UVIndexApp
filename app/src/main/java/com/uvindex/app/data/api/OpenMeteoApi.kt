@@ -11,7 +11,7 @@ interface OpenMeteoApi {
     suspend fun getWeatherForecast(
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
-        @Query("hourly") hourly: String = "uv_index,temperature_2m",
+        @Query("hourly") hourly: String = "uv_index,temperature_2m,windspeed_10m,winddirection_10m",
         @Query("timezone") timezone: String = "auto",
         @Query("forecast_days") forecastDays: Int = 1
     ): WeatherResponse

@@ -1,3 +1,69 @@
+## Issue #19 — Wind data flows into the forecast
+
+### Status: COMPLETE
+
+### Parent
+#18 — Wind widget (1x1). This is Slice 1 of 2 (data path + direction math);
+Slice 2 (#20) builds the 1x1 WindWidget on top of it.
+
+### What was implemented
+
+**`OpenMeteoApi.kt`:**
+- Extended the default `hourly` query from `uv_index,temperature_2m` to
+  `uv_index,temperature_2m,windspeed_10m,winddirection_10m`. Open-Meteo's default
+  `windspeed_unit` is `kmh`, so no unit param is needed — the issue's "km/h" is the default.
+
+**`WeatherResponse.kt` (`HourlyData`):**
+- Added `@SerialName("windspeed_10m") windSpeed: List<Double> = emptyList()` and
+  `@SerialName("winddirection_10m") windDirection: List<Double> = emptyList()`. Defaulted to
+  empty so a partial/legacy API response without the fields still deserializes.
+
+**`UVForecast.kt` (`HourlyForecast`):**
+- Added `windSpeed: Double = 0.0` (km/h, rounded) and `windDirection: Double = 0.0`
+  (source bearing in degrees — where the wind comes FROM). **Defaults are load-bearing**:
+  `CachedWeatherData` serializes `UVForecast`, so old cached payloads written before this
+  change still deserialize (the back-compat acceptance criterion).
+
+**`WeatherRepository.parseWeatherResponse()`:**
+- Populates the two new fields per hour: `windSpeed` via
+  `response.hourly.windSpeed.getOrNull(index)?.roundToInt()?.toDouble() ?: 0.0` (rounded at
+  parse time, same pattern as uv/temperature from #10/#15), `windDirection` via
+  `response.hourly.windDirection.getOrNull(index) ?: 0.0` (kept raw; bucketed to an octant by
+  the display helper, so no rounding needed). `getOrNull` guards against the empty-list default.
+- `reParseWithCurrentTime()` needed no change — it copies `HourlyForecast` objects straight
+  from `allDayForecasts`, so wind survives the cache re-parse for free.
+
+**New pure module `com.uvindex.app.wind.WindDirection`
+(`app/src/main/java/com/uvindex/app/wind/WindDirection.kt`):**
+- `enum class CompassOctant { N, NE, E, SE, S, SW, W, NW }` — ordered clockwise from North;
+  ordinal == 45° octant index.
+- `fun travelOctant(sourceBearingDegrees: Double): CompassOctant` — converts the
+  meteorological source bearing into the octant the wind travels TOWARD:
+  `travel = source + 180`, normalized into `[0,360)` (handles negative / >360 inputs),
+  then `(travel / 45).roundToInt() % 8` indexes `CompassOctant.entries`. So a wind "from N"
+  (0°) yields a southward arrow. Pure Kotlin, no Android imports — used by Slice 2's widget.
+
+**`WindDirectionTest.kt` (`app/src/test/java/com/uvindex/app/wind/`):**
+- 11 pure JVM tests: 4 cardinal sources (N→S, E→W, S→N, W→E), 2 intercardinal (NE→SW, SW→NE),
+  2 rounding-boundary cases (22°→S, 23°→SW), and 3 normalization cases (350° wrap, exactly
+  360°, negative −90°).
+
+### Notes / not done
+- Wind speed/direction parsing inside `parseWeatherResponse` is not independently unit-tested:
+  the method is private and `WeatherRepository` has no DI seam (same constraint noted for
+  #15/#10). The direction math — the actual risk in this slice — is fully covered by the pure
+  `travelOctant` tests. The data threading is verified by a clean compile + green suite.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 60 tests run, 60 passed (0 failures).
+- WindDirectionTest: 11/11 passed (pure JVM, new)
+- NotificationDeciderTest: 22/22 passed (unchanged)
+- NotificationHistoryStoreTest: 15/15 passed (unchanged)
+- UvRiskTest: 9/9 passed (unchanged)
+- NotificationDispatcherTest: 3/3 passed (unchanged)
+
+---
+
 ## Issue #16 — Long loading times
 
 ### Status: COMPLETE
