@@ -4,4 +4,5 @@
     <string name="widget_description">Zeigt den UV-Index für die nächsten 4 Stunden</string>
     <string name="widget_max_description">Zeigt den maximalen UV-Index des Tages</string>
     <string name="wind_widget_description">Zeigt die aktuelle Windrichtung und -geschwindigkeit</string>
+    <string name="wind_widget_label">Wind</string>
 </resources>

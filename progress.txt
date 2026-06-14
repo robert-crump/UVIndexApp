@@ -624,3 +624,24 @@ All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
 
 ### Test results
 All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
+
+---
+
+## Issue #18 — Wind widget (1x1): widget name shown in picker
+
+### Status: COMPLETE
+
+### What was implemented
+
+The 1x1 Wind Widget (added in #20) had no `android:label` on its receiver, so the Android
+widget picker showed it under the app name "UV-Index" — indistinguishable from the UV
+index widgets, despite displaying wind direction/speed.
+
+**`AndroidManifest.xml`:**
+- Added `android:label="@string/wind_widget_label"` to the `.widget.WindWidget` receiver.
+
+**`strings.xml`:**
+- Added `wind_widget_label` = "Wind".
+
+### Test results
+All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL.
