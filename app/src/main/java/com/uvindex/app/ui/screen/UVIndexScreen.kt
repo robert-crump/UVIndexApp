@@ -2,11 +2,9 @@ package com.uvindex.app.ui.screen
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
@@ -22,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.zIndex
 import com.uvindex.app.data.model.HourlyForecast
 import com.uvindex.app.data.model.TimeSlot
 import com.uvindex.app.data.model.UVForecast
@@ -30,13 +27,16 @@ import com.uvindex.app.ui.viewmodel.MainViewModel
 import com.uvindex.app.ui.viewmodel.UVUiState
 import com.uvindex.app.ui.theme.UVColorHelper
 import com.uvindex.app.ui.components.UVBarChart
-import com.uvindex.app.ui.components.ClearSkyBarChart
 import com.uvindex.app.ui.components.TemperatureLineChart
+import com.uvindex.app.uv.SkinType
+import com.uvindex.app.uv.formatProtectionTime
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import android.content.Context
+import android.content.Intent
 import com.uvindex.app.InfoActivity
 import com.uvindex.app.SettingsActivity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun UVIndexScreen(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val skinType by viewModel.skinType.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     var showMenu by remember { mutableStateOf(false) }
@@ -119,7 +120,15 @@ fun UVIndexScreen(viewModel: MainViewModel) {
                         SkeletonUVContent()
                     }
                     is UVUiState.Success -> {
-                        CompactUVContent(forecast = state.forecast)
+                        CompactUVContent(
+                            forecast = state.forecast,
+                            skinType = skinType,
+                            onOpenSettings = {
+                                val intent = Intent(context, SettingsActivity::class.java)
+                                    .putExtra(SettingsActivity.EXTRA_HIGHLIGHT_SKIN_TYPE, true)
+                                context.startActivity(intent)
+                            }
+                        )
                     }
                     is UVUiState.Error -> {
                         ErrorContent(
@@ -140,9 +149,7 @@ fun UVIndexScreen(viewModel: MainViewModel) {
 }
 
 @Composable
-fun CompactUVContent(forecast: UVForecast) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-
+fun CompactUVContent(forecast: UVForecast, skinType: SkinType?, onOpenSettings: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -150,19 +157,16 @@ fun CompactUVContent(forecast: UVForecast) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // First row: city name and data timestamp
         LocationTimeCard(
             locationName = forecast.locationName,
             lastUpdateTime = forecast.lastUpdateTime,
             countryCode = forecast.countryCode
         )
 
-        // Second row: current UV index and clear-sky maximum
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Current UV index tile with time (50% width, 10% shorter)
             CurrentUVCard(
                 currentUV = forecast.currentHour.uvIndex,
                 currentHour = forecast.currentHour.hour,
@@ -171,23 +175,6 @@ fun CompactUVContent(forecast: UVForecast) {
                     .weight(1f)
                     .aspectRatio(1.11f)
             )
-
-            // Clear-sky UV maximum tile (50% width, 10% shorter)
-            ClearSkyUVCard(
-                clearSkyMax = forecast.clearSkyMax,
-                forecast = forecast,
-                modifier = Modifier
-                    .weight(1f)
-                    .aspectRatio(1.11f)
-            )
-        }
-
-        // Third row: remaining maximum UV and temperature
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Remaining max UV index tile with time (50% width, 10% shorter)
             MaxUVCard(
                 dailyMax = forecast.dailyMaxRemaining,
                 maxHour = forecast.maxHourToday,
@@ -196,8 +183,20 @@ fun CompactUVContent(forecast: UVForecast) {
                     .weight(1f)
                     .aspectRatio(1.11f)
             )
+        }
 
-            // Temperature tile (50% width, 10% shorter)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SelfProtectionCard(
+                skinType = skinType,
+                currentUV = forecast.currentHour.uvIndex,
+                onOpenSettings = onOpenSettings,
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1.11f)
+            )
             TemperatureCard(
                 temperature = forecast.currentHour.temperature,
                 forecast = forecast,
@@ -393,131 +392,6 @@ fun MaxUVCard(
 }
 
 @Composable
-fun ClearSkyUVCard(
-    clearSkyMax: Double,
-    forecast: UVForecast,
-    modifier: Modifier = Modifier
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val uvColor = UVColorHelper.getColor(clearSkyMax, context, UVColorHelper.ColorType.FOREGROUND)
-    val categoryText = UVColorHelper.getCategoryText(clearSkyMax)
-    val backgroundColor = UVColorHelper.getColor(clearSkyMax, context, UVColorHelper.ColorType.BACKGROUND)
-
-    // State for dialog and tooltip
-    var showDialog by remember { mutableStateOf(false) }
-    var showTooltip by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = modifier
-            .clickable { showDialog = true },  // Tapping the entire card opens the chart dialog
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterStart),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Number left-aligned, at mid-height, may overflow beyond half width
-                Text(
-                    text = clearSkyMax.toInt().toString(),
-                    style = MaterialTheme.typography.displayLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = uvColor,
-                    modifier = Modifier.fillMaxWidth(0.5f)
-                )
-                // Label in UV color, bold
-                Text(
-                    text = "Clear-Sky-Max",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = uvColor
-                )
-                // Category in UV color, bold
-                Text(
-                    text = categoryText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = uvColor
-                )
-            }
-
-            // Info icon top right
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(24.dp)
-            ) {
-                IconButton(
-                    onClick = { showTooltip = !showTooltip },
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(
-                                color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f),
-                                shape = CircleShape
-                            )
-                            .border(
-                                width = 1.5.dp,
-                                color = androidx.compose.ui.graphics.Color.White,
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "?",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = androidx.compose.ui.graphics.Color.White
-                        )
-                    }
-                }
-            }
-
-            // Tooltip / info box
-            if (showTooltip) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(y = 28.dp) // Unterhalb des Info-Icons
-                        .width(200.dp)
-                        .zIndex(10f) // Ensure it renders above other elements
-                ) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.85f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        modifier = Modifier.clickable { showTooltip = false }
-                    ) {
-                        Text(
-                            text = "Theoretisches Max. bei wolkenlosem Himmel (aktueller Standort und Stunde)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.padding(12.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    // Dialog with clear-sky UV chart
-    if (showDialog) {
-        ClearSkyChartDialog(
-            forecast = forecast,
-            onDismiss = { showDialog = false }
-        )
-    }
-}
-
-@Composable
 fun TemperatureCard(
     temperature: Double,
     forecast: UVForecast,
@@ -574,6 +448,104 @@ fun TemperatureCard(
             forecast = forecast,
             onDismiss = { showDialog = false }
         )
+    }
+}
+
+@Composable
+fun SelfProtectionCard(
+    skinType: SkinType?,
+    currentUV: Double,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    when {
+        skinType == null -> {
+            Card(
+                modifier = modifier.clickable { onOpenSettings() },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Hauttyp in Einstellungen wählen",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        currentUV < 1.0 -> {
+            Card(modifier = modifier) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.align(Alignment.CenterStart),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Kein Risiko",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color.Black
+                        )
+                        Text(
+                            text = "Eigenschutzzeit",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color.Black
+                        )
+                        Text(
+                            text = skinType.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = androidx.compose.ui.graphics.Color.Black
+                        )
+                    }
+                }
+            }
+        }
+        else -> {
+            val minutes = skinType.protectionMinutes(currentUV)
+            Card(modifier = modifier) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.align(Alignment.CenterStart),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = formatProtectionTime(minutes),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color.Black
+                        )
+                        Text(
+                            text = "Eigenschutzzeit",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color.Black
+                        )
+                        Text(
+                            text = skinType.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = androidx.compose.ui.graphics.Color.Black
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -721,54 +693,6 @@ fun UVChartDialog(forecast: UVForecast, onDismiss: () -> Unit) {
                     }
 
                     UVBarChart(
-                        forecast = forecast,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ClearSkyChartDialog(forecast: UVForecast, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onDismiss() },
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Box {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Header with title and close button
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Clear-Sky UV: ${java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.getDefault()).format(java.util.Date())}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        IconButton(onClick = onDismiss) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Schließen",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-
-                    ClearSkyBarChart(
                         forecast = forecast,
                         modifier = Modifier
                             .fillMaxWidth()

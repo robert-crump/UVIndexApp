@@ -11,13 +11,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.collectAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,16 +31,25 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.uvindex.app.data.local.DataStoreManager
 import com.uvindex.app.data.location.BackgroundLocationStep
 import com.uvindex.app.data.location.nextBackgroundLocationStep
 import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.ui.theme.UVIndexTheme
+import com.uvindex.app.uv.SkinType
 import com.uvindex.app.widget.NotificationScheduler
 import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
+
+    companion object {
+        const val EXTRA_HIGHLIGHT_SKIN_TYPE = "highlight_skin_type"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val highlightSkinType = intent.getBooleanExtra(EXTRA_HIGHLIGHT_SKIN_TYPE, false)
 
         // Enable edge-to-edge for seamless display
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -49,7 +64,8 @@ class SettingsActivity : ComponentActivity() {
                 }
 
                 SettingsScreen(
-                    onBackPressed = { finish() }
+                    onBackPressed = { finish() },
+                    highlightSkinType = highlightSkinType
                 )
             }
         }
@@ -58,9 +74,10 @@ class SettingsActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBackPressed: () -> Unit) {
+fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val historyStore = remember { SharedPreferencesNotificationHistoryStore(context) }
+    val dataStoreManager = remember { DataStoreManager(context) }
     val coroutineScope = rememberCoroutineScope()
 
     var dailyNotificationEnabled by remember { mutableStateOf(true) }
@@ -71,6 +88,20 @@ fun SettingsScreen(onBackPressed: () -> Unit) {
         dailyNotificationEnabled = history.dailyEnabled
         hourlyNotificationEnabled = history.uvWarningEnabled
     }
+
+    val currentSkinType by dataStoreManager.getSkinType().collectAsState(initial = null)
+    var skinTypeDropdownExpanded by remember { mutableStateOf(false) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "skinTypeHighlight")
+    val highlightAlpha by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = if (highlightSkinType) 0.18f else 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(650, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "highlight_alpha"
+    )
 
     // --- Background location opt-in (Issue #21) -------------------------------------------
     // The Switch mirrors the real OS grant state (the user may grant/revoke in system
@@ -175,9 +206,76 @@ fun SettingsScreen(onBackPressed: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            // Skin type section
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = highlightAlpha))
+                    .padding(vertical = 4.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Hauttyp",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Wird zur Berechnung der Eigenschutzzeit verwendet (Fitzpatrick-Skala)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    ExposedDropdownMenuBox(
+                        expanded = skinTypeDropdownExpanded,
+                        onExpandedChange = { skinTypeDropdownExpanded = !skinTypeDropdownExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = currentSkinType?.let { "${it.label} – ${it.description}" }
+                                ?: "Nicht ausgewählt",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Hauttyp") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = skinTypeDropdownExpanded)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = skinTypeDropdownExpanded,
+                            onDismissRequest = { skinTypeDropdownExpanded = false }
+                        ) {
+                            SkinType.entries.forEach { type ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(
+                                                text = type.label,
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                            Text(
+                                                text = type.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        coroutineScope.launch { dataStoreManager.saveSkinType(type) }
+                                        skinTypeDropdownExpanded = false
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Heading
             Text(
                 text = "Benachrichtigungen",

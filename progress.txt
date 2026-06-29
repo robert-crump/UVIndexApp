@@ -1,3 +1,58 @@
+## Issue #22 — Skin type and self-protection time
+
+### Status: COMPLETE
+
+### What was implemented
+
+**New `com.uvindex.app.uv.SkinType`
+(`app/src/main/java/com/uvindex/app/uv/SkinType.kt`):**
+- Fitzpatrick I–VI enum with WHO/ICNIRP MED values (200/250/300/450/600/1000 J/m²).
+- `protectionMinutes(uvIndex)` — formula: `MED / (UV × 1.5)`, rounded to nearest 5 min,
+  minimum 5 min.
+- `formatProtectionTime(minutes)` — smart formatting: "25 min" / "1 h 05 min".
+
+**`DataStoreManager.kt`:**
+- Added `SKIN_TYPE_ORDINAL` int key, `saveSkinType(SkinType)`, and `getSkinType(): Flow<SkinType?>`.
+  Stored as enum ordinal in the existing `uv_index_prefs` DataStore.
+
+**`MainViewModel.kt`:**
+- Added `val skinType: StateFlow<SkinType?>` backed by `dataStoreManager.getSkinType()`
+  via `stateIn(Eagerly)` so the value is ready before the first composition.
+
+**`SettingsActivity.kt`:**
+- Added `companion object { const val EXTRA_HIGHLIGHT_SKIN_TYPE }`.
+- `highlightSkinType` boolean read from Intent extra and passed to `SettingsScreen`.
+- New "Hauttyp" section at the top of the settings screen: short description, then an
+  `ExposedDropdownMenuBox` with all 6 Fitzpatrick types (label + description per item).
+  Selected type persists immediately via `dataStoreManager.saveSkinType()`.
+- Pulsing highlight animation (`rememberInfiniteTransition`, alpha 0→0.18) on the skin
+  type section background when launched with `EXTRA_HIGHLIGHT_SKIN_TYPE = true`.
+- Settings column made scrollable (`verticalScroll`).
+
+**`UVIndexScreen.kt`:**
+- **Layout change**: ClearSkyUVCard removed. New layout:
+  ```
+  [ LocationTimeCard                          ]
+  [ CurrentUVCard      ] [ MaxUVCard          ]
+  [ SelfProtectionCard ] [ TemperatureCard    ]
+  ```
+- `CompactUVContent` now accepts `skinType: SkinType?` and `onOpenSettings: () -> Unit`.
+- `UVIndexScreen` collects `viewModel.skinType` and builds the `onOpenSettings` lambda
+  (starts `SettingsActivity` with `EXTRA_HIGHLIGHT_SKIN_TYPE = true`).
+- **New `SelfProtectionCard`** composable — three states:
+  - `skinType == null`: greyed card ("Hauttyp in Einstellungen wählen"), tappable → opens Settings.
+  - `currentUV < 1.0`: "Kein Risiko" + skin type label (card always visible, layout stable).
+  - Otherwise: formatted protection time + "Eigenschutzzeit" label + skin type label.
+  Once a skin type is set the card is non-interactive.
+- `ClearSkyUVCard` and `ClearSkyChartDialog` composables removed.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 65 tests run, 65 passed (0 failures).
+All 65 pre-existing tests unchanged and green.
+`:app:assembleDebug` — BUILD SUCCESSFUL.
+
+---
+
 ## Issue #21 — Widgets not updating after location change
 
 ### Status: COMPLETE
@@ -209,511 +264,3 @@ Slice 2 (#20) builds the 1x1 WindWidget on top of it.
 - NotificationDispatcherTest: 3/3 passed (unchanged)
 
 ---
-
-## Issue #16 — Long loading times
-
-### Status: COMPLETE
-
-### Root cause
-`LocationService.getCurrentLocation()` called `fusedLocationClient.getCurrentLocation()`
-(`requestFreshLocation()`) with no timeout. On the reported run the fused provider hung
-for 20+ seconds before the app could even check the cache, so the loading spinner stayed
-up the whole time — and once it returned, the location had moved enough (or enough time
-had passed) to also trigger a background refresh, which is why the displayed
-`lastUpdateTime` jumped from 06:48 → 07:02 without a manual pull-to-refresh.
-
-### What was implemented
-**`LocationService.kt`:**
-- Added `FRESH_LOCATION_TIMEOUT_MS = 5_000L` and wrapped `requestFreshLocation()` in
-  `withTimeoutOrNull(...)`. If the fused provider doesn't answer within 5s, we fall back
-  to `getLastKnownLocation()` immediately (same fallback chain as before, just bounded).
-  `withTimeoutOrNull` cancels the inner coroutine on timeout, which triggers the existing
-  `continuation.invokeOnCancellation { cancellationTokenSource.cancel() }`, so the
-  in-flight fused-location request is properly cancelled rather than left running.
-
-### Test results
-`:app:testDebugUnitTest` — all existing tests pass (no LocationService unit tests exist,
-as `FusedLocationProviderClient` is a final Play Services class that isn't practical to
-fake without a larger DI refactor; the fix is a minimal, localized timeout).
-
----
-
-## Issue #6 — Notification module foundation + Daily Forecast channel
-
-### Status: COMPLETE
-
-### What was implemented
-
-**New package `com.uvindex.app.notification`:**
-
-- `NotificationTypes.kt` — Decision-locked data types: `NotificationHistory`, `WarnedAbout`,
-  `Channel`, `Phase`, `Priority`, `Action`, `NotificationDecision`. No Android imports.
-
-- `NotificationDecider.kt` — Pure `decide(now: ZonedDateTime, forecast: UVForecast?,
-  history: NotificationHistory): List<NotificationDecision>` function. No Android imports.
-  Morning trigger window: hours 5–11. Emits Daily decision when `dailyEnabled`, not already
-  sent today, in window, and forecast available. UV Warning channel returns nothing (Slice 2).
-
-- `NotificationHistoryStore.kt` — `NotificationHistoryStore` interface with
-  `snapshot() / record() / markUvWarningDisabledToday()`. Backed by
-  `SharedPreferencesNotificationHistoryStore` which runs one-time migration from legacy
-  `uv_notifications` and `uv_app_settings` SharedPreferences on first `snapshot()` call.
-  Migration flag: `umbrella_migrated` in `uv_notification_history` prefs.
-
-- `NotificationDispatcher.kt` — Renders a `NotificationDecision` into an Android notification.
-  Returns `true` on success, `false` (no crash) when POST_NOTIFICATIONS permission is missing.
-
-**Refactored `DailyUVCheckWorker.kt`:**
-- Reduced to: refresh forecast → snapshot history → decide() → dispatch + record on success.
-- Inline helpers `sendDailyForecastNotification`, `buildDailyDescription`, `createTimeRanges`,
-  `formatTimeRange` deleted from the worker.
-
-**Test infrastructure (`app/src/test/java/`):**
-- Scaffolded JVM test source set (previously empty).
-- `NotificationDeciderTest` — 6 pure JVM tests for `decide()` Daily cases.
-- `NotificationHistoryStoreTest` — 4 Robolectric tests covering migration from legacy keys.
-- `NotificationDispatcherTest` — 2 Robolectric tests verifying correct notification ID/title/body
-  and graceful false-return when permission missing.
-
-**Build upgrades required for JDK 25 compatibility:**
-- Gradle wrapper: 8.2 → 9.5.1 (Gradle 8.x embeds Kotlin 2.0.21 DSL which can't parse JDK 25
-  version string; Gradle 9.5.1 embeds Kotlin 2.1.x DSL with the fix).
-- Kotlin plugin: 1.9.22 → 2.1.21 (via `org.jetbrains.kotlin.android` + new
-  `org.jetbrains.kotlin.plugin.compose` plugin replacing `composeOptions` block).
-- AGP: 8.2.2 → 8.7.3 (needed for Gradle 9.x compatibility).
-- Robolectric: 4.11.1 → 4.16.1 (4.14.x and earlier use ASM < 9.8 which can't read JDK 25
-  class file major version 69; 4.16.1 includes ASM 9.8 with JDK 25 support).
-- Serialization plugin: 1.9.22 → 2.1.21.
-
-**Test pattern note (for future slices):**
-Robolectric tests: annotate with `@RunWith(RobolectricTestRunner::class)` + use
-`@Config(application = Application::class)` to prevent `UVIndexApplication.onCreate()` from
-running (it calls WorkManager which is not initialized in Robolectric test environment).
-Obtain context via `ApplicationProvider.getApplicationContext()`.
-
-### Test results
-12 tests run, 12 passed (0 failures).
-- NotificationDeciderTest: 6/6 passed (pure JVM, no Android imports)
-- NotificationHistoryStoreTest: 4/4 passed (Robolectric, migration coverage)
-- NotificationDispatcherTest: 2/2 passed (Robolectric, notification ID/title/body verified)
-
-### Follow-up (2026-05-20, session 2)
-CONTEXT.md was present on disk but not staged in the previous commit. Added to git and
-GitHub issue #6 closed. No code changes — all 12 tests still pass.
-
----
-
-## Issue #7 — UV Warning channel with Prelude + In-window phases
-
-### Status: COMPLETE
-
-### What was implemented
-
-**`NotificationDecider.kt`:**
-- Added `decideUvWarning()` — pure UV Warning decision logic with Prelude and In-window phases.
-- Prelude: currentUV < 6 AND next forecast hour UV >= 6.
-- InWindow: currentUV >= 6 (fallback when Prelude was missed).
-- Guards: `uvWarningEnabled`, `uvWarningDisabledOn == today`, `lastUvWarningOn == today`
-  (once-per-day dedup; Worse News re-fire added in the next slice).
-- Helper `buildWarnedAbout()` captures peak, firstHighHour, highHours from all high-UV entries.
-- Helper `buildUvWarningContent()` builds German notification text for each phase.
-- `decide()` now calls both `decideDailyForecast()` and `decideUvWarning()`.
-
-**`NotificationHistoryStore.kt`:**
-- Extended `migrate()` to fold legacy hourly + transition SharedPreferences into the umbrella:
-  - `last_hourly_sent_time` (Long ms) → `lastUvWarningAt` + `lastUvWarningOn`
-    (if sent today, dedup blocks immediate re-fire).
-  - `hourly_disabled_date` (String) → `uvWarningDisabledOn`.
-  - `last_transition_warned_hour` + `last_transition_warned_date` → `lastUvWarning`
-    with peak=6.0f (conservative), highHours={warnedHour}.
-    If transition was today → `lastUvWarningOn = today` to block re-fire.
-- Added four new legacy constants for the new migration paths.
-
-**`NotificationDispatcher.kt`:**
-- `buildNotification()` now iterates `decision.actions`.
-- For `Action.DisableUvWarningsToday`, adds "Warnungen heute deaktivieren" button whose
-  PendingIntent broadcasts to `NotificationActionReceiver.ACTION_DISABLE_UV_WARNINGS`.
-
-**`NotificationActionReceiver.kt`:**
-- Replaced `ACTION_DISABLE_HOURLY` + direct SharedPreferences writes with
-  `ACTION_DISABLE_UV_WARNINGS` + `historyStore.markUvWarningDisabledToday()` via goAsync coroutine.
-- No SharedPreferences calls remain in the receiver.
-
-**`HourlyUpdateWorker.kt`:**
-- Deleted inline methods: `checkAndSendHourlyWarning`, `checkAndSendTransitionWarning`,
-  `sendHourlyWarning`, `isHourlyDisabledToday`, `isHourlyNotificationEnabled`,
-  `hasNotificationPermission`.
-- `doWork()` now: fetch forecast → `historyStore.snapshot()` → `NotificationDecider.decide()`
-  → dispatch + record each decision.
-- Widget update path (only on `shouldFetchNew`) preserved unchanged.
-
-**`AndroidManifest.xml`:**
-- Updated `NotificationActionReceiver` intent-filter action from `DISABLE_HOURLY`
-  to `DISABLE_UV_WARNINGS`.
-
-**Note on notification ID 3:**
-No code path in the new module emits notification ID 3. The legacy
-`checkAndSendTransitionWarning` (which called `notify(3, ...)`) has been deleted from
-`HourlyUpdateWorker`.
-
-**Tests:**
-- `NotificationDeciderTest` — 5 new UV Warning tests: Prelude fires, InWindow fires,
-  silent when disabled in settings, silent when disabled today, silent when sent today.
-  `historyWith()` helper defaulted to `uvWarningEnabled = false` to isolate Daily-channel
-  tests from UV Warning interference.
-- `NotificationHistoryStoreTest` — 4 new migration tests: hourly timestamp/disabled date,
-  lastUvWarningOn set to today when hourly was sent today, transition keys → lastUvWarning.
-- `NotificationDispatcherTest` — 1 new UV Warning test: notification ID 2, correct title,
-  action button present.
-
-### Test results
-21 tests run, 21 passed (0 failures).
-- NotificationDeciderTest: 11/11 passed (6 Daily + 5 UV Warning, pure JVM)
-- NotificationHistoryStoreTest: 8/8 passed (4 original + 4 UV Warning migration, Robolectric)
-- NotificationDispatcherTest: 3/3 passed (2 original + 1 UV Warning, Robolectric)
-
----
-
-## Issue #8 — Worse News re-fire on forecast updates
-
-### Status: COMPLETE
-
-### What was implemented
-
-**`NotificationDecider.kt`:**
-- Added `internal fun worseNews(previous: WarnedAbout?, current: WarnedAbout, now: LocalDateTime): Boolean`.
-  Decision-locked predicate: `previous == null` → true; `current.peak > previous.peak` → true;
-  `current.firstHighHour < previous.firstHighHour` → true; any `current.highHours` hour
-  `>= now.hour` not in `previous.highHours` → true; otherwise false.
-- Modified `decideUvWarning()`: moved `highForecasts`/`warnedAbout` computation before the
-  once-per-day dedup guard. When `lastUvWarningOn == today`, calls
-  `worseNews(history.lastUvWarning, warnedAbout, now.toLocalDateTime())`; only suppresses
-  if `worseNews` is false. The unconditional `uvWarningDisabledOn == today` block is unchanged.
-- Added `import java.time.LocalDateTime`.
-
-**`NotificationDeciderTest.kt`:**
-- Updated `historyForUvWarning()` to accept `lastUvWarning: WarnedAbout? = null`.
-- Updated existing "silent when sent today" test to supply a matching `lastUvWarning` so
-  `worseNews` correctly returns false (previously `null` which now triggers a re-fire).
-- Added `forecastWithHoursAt(nowHour, hourUVs)` helper for multi-hour forecast construction.
-- Added `nowAt(hour)` helper for `LocalDateTime` in `worseNews` direct tests.
-- 6 `worseNews` direct tests: null previous → true; identical → false; higher peak → true;
-  new high hour after now → true; earlier firstHighHour → true; shrunk window → false.
-- 4 `decide()` re-fire tests: re-fires on higher peak; re-fires on new hour after now;
-  re-fires on earlier firstHighHour; stays silent on shrunk window.
-- 1 interaction test: user disabled today, forecast worsened → still silent.
-
-### Test results
-32 tests run, 32 passed (0 failures).
-- NotificationDeciderTest: 22/22 passed (6 Daily + 5 UV Warning first-fire + 6 worseNews + 5 re-fire, pure JVM)
-- NotificationHistoryStoreTest: 7/7 passed (Robolectric, migration coverage)
-- NotificationDispatcherTest: 3/3 passed (Robolectric, notification ID/title/body verified)
-
----
-
-## Issue #9 — Clean up legacy notification SharedPreferences keys
-
-### Status: COMPLETE
-
-### What was implemented
-
-**`NotificationHistoryStore.kt`:**
-- Added `purgeLegacyKeys()` private method: removes the six legacy keys from `uv_notifications`
-  SharedPreferences via a single `edit().remove(...).apply()` chain:
-  `daily_sent_date`, `daily_sent_timestamp`, `last_hourly_sent_time`,
-  `hourly_disabled_date`, `last_transition_warned_hour`, `last_transition_warned_date`.
-- `record()` calls `purgeLegacyKeys()` at the end, after writing to the umbrella. Since `record()`
-  always writes at least one umbrella value, this satisfies the "after umbrella has at least one
-  written value" trigger. Subsequent calls are idempotent (removing absent keys is a no-op).
-- `uv_app_settings` keys (`daily_notification_enabled`, `hourly_notification_enabled`) are not touched.
-- Updated legacy key comment from "left in place" to "purged from uv_notifications on first record()".
-
-**`NotificationHistoryStoreTest.kt`:**
-- Added `import java.time.Instant` for the new test helper.
-- 3 new tests (Issue #9 section):
-  - `record deletes six legacy keys from uv_notifications` — writes all 6 legacy keys, calls
-    `record()`, asserts none remain; also verifies umbrella is still readable.
-  - `snapshot alone does not touch legacy keys` — confirms legacy keys survive multiple
-    `snapshot()` calls when no `record()` has been called.
-  - `record does not touch settings keys in uv_app_settings` — seeds both settings keys, calls
-    `record()`, verifies both keys are still present with their original values.
-
-### Test results
-35 tests run, 35 passed (0 failures).
-- NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
-- NotificationHistoryStoreTest: 10/10 passed (7 prior + 3 new legacy-cleanup tests, Robolectric)
-- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
-
----
-
-## Issue #11 — UV Risk classifier: single owner of High UV / Very High UV thresholds
-
-### Status: COMPLETE
-
-### What was implemented
-
-**New module `com.uvindex.app.uv.UvRisk` (`app/src/main/java/com/uvindex/app/uv/UvRisk.kt`):**
-- `enum class UvRisk { None, Moderate, High, VeryHigh }` — ordinal ordering enables `>=` comparisons.
-- `classifyUvRisk(uvIndex: Double): UvRisk` — pure top-level classifier; thresholds ≥ 8.0 → VeryHigh, ≥ 6.0 → High, ≥ 3.0 → Moderate, else None.
-- `isHigh(): Boolean` extension — true for High and VeryHigh.
-- `isVeryHigh(): Boolean` extension — true only for VeryHigh.
-- No Android imports; pure Kotlin.
-- Package `com.uvindex.app.uv` chosen so `notification` depends on `uv`, not the reverse.
-
-**`NotificationDecider.kt` — all 6.0 / 8.0 literals replaced:**
-- Phase detection: `currentUV < 6.0` / `>= 6.0` → `!currentRisk.isHigh()` / `currentRisk.isHigh()` via `classifyUvRisk`.
-- `highForecasts` filter: `it.uvIndex >= 6.0` → `classifyUvRisk(it.uvIndex).isHigh()`.
-- InWindow `highHours` filter: same pattern.
-- InWindow `veryHigh` filter: `it.uvIndex >= 8.0` → `classifyUvRisk(it.uvIndex).isVeryHigh()`.
-- `buildHighUVDescription` very-high filter: `it.uvIndex >= 8` → `classifyUvRisk(it.uvIndex).isVeryHigh()`.
-- `buildHighUVDescription` high-only filter: `it.uvIndex in 6.0..<8.0` → `classifyUvRisk(it.uvIndex) == UvRisk.High`.
-- `WeatherRepository.findHighUVTimeSlots` (4.0 threshold, chart highlighting) left unchanged per spec.
-- `UVColorHelper` left unchanged per spec.
-
-**`CONTEXT.md` — forward-reference removed:**
-- High UV and Very High UV entries now point to `classifyUvRisk` in `com.uvindex.app.uv.UvRisk`.
-- "see deepening opportunity #1" removed.
-
-**`UvRiskTest.kt` (`app/src/test/java/com/uvindex/app/uv/UvRiskTest.kt`):**
-- 9 pure JVM tests covering: None range, Moderate range, High boundary (6.0), High mid-range, VeryHigh boundary (8.0), VeryHigh above 8.0, isHigh() for High/VeryHigh, isHigh() false for None/Moderate, isVeryHigh() exclusive to VeryHigh.
-
-### Test results
-44 tests run, 44 passed (0 failures).
-- UvRiskTest: 9/9 passed (pure JVM, new classifier tests)
-- NotificationDeciderTest: 22/22 passed (pure JVM, all existing cases pass with no behavior change)
-- NotificationHistoryStoreTest: 10/10 passed (Robolectric, unchanged)
-- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
-
----
-
-## Issue #12 — Notification preferences: route SettingsActivity toggles through NotificationHistoryStore
-
-### Status: COMPLETE
-
-### What was implemented
-
-**`NotificationHistoryStore.kt` — interface additions:**
-- Added `setDailyEnabled(enabled: Boolean)` and `setUvWarningEnabled(enabled: Boolean)` (suspending) to the `NotificationHistoryStore` interface.
-
-**`SharedPreferencesNotificationHistoryStore` — implementations:**
-- `setDailyEnabled`: writes `KEY_DAILY_ENABLED` to umbrella prefs AND mirrors `LEGACY_DAILY_ENABLED` to `uv_app_settings`.
-- `setUvWarningEnabled`: writes `KEY_UV_WARNING_ENABLED` to umbrella prefs AND mirrors `LEGACY_UV_WARNING_ENABLED` to `uv_app_settings`.
-- Both use `withContext(Dispatchers.IO)` matching the existing `record()` / `markUvWarningDisabledToday()` pattern.
-
-**`SettingsActivity.kt`:**
-- Added `val historyStore = remember { SharedPreferencesNotificationHistoryStore(context) }`.
-- Added `val coroutineScope = rememberCoroutineScope()`.
-- Daily Switch `onCheckedChange`: replaced `prefs.edit().putBoolean("daily_notification_enabled", enabled).apply()` with `coroutineScope.launch { historyStore.setDailyEnabled(enabled) }`. Scheduler calls unchanged.
-- UV Warning Switch `onCheckedChange`: replaced `prefs.edit().putBoolean("hourly_notification_enabled", enabled).apply()` with `coroutineScope.launch { historyStore.setUvWarningEnabled(enabled) }`.
-- Initial state reads (`prefs.getBoolean(...)`) left as-is — cleaned up in follow-up slices.
-
-**`NotificationHistoryStoreTest.kt` — 3 new tests (Issue #12 section):**
-- `setDailyEnabled false is reflected in next snapshot` — calls setter, asserts `snapshot().dailyEnabled == false`.
-- `setUvWarningEnabled false is reflected in next snapshot` — calls setter, asserts `snapshot().uvWarningEnabled == false`.
-- `setters mirror values to legacy uv_app_settings keys` — calls both setters with `false`, asserts both legacy keys updated in `uv_app_settings`.
-
-### Test results
-47 tests run, 47 passed (0 failures).
-- NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
-- NotificationHistoryStoreTest: 13/13 passed (10 prior + 3 new setter tests, Robolectric)
-- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
-- UvRiskTest: 9/9 passed (pure JVM, unchanged)
-
----
-
-## Issue #13 — Notification preferences: ScreenUnlockReceiver reads dailyEnabled via NotificationHistoryStore
-
-### Status: COMPLETE
-
-### What was implemented
-
-**`ScreenUnlockReceiver.kt` — ACTION_BOOT_COMPLETED branch:**
-- Replaced direct `context.getSharedPreferences("uv_app_settings", …).getBoolean("daily_notification_enabled", true)` read with `SharedPreferencesNotificationHistoryStore(context).snapshot().dailyEnabled`.
-- Used `goAsync()` + `CoroutineScope(Dispatchers.IO).launch { … pendingResult.finish() }` pattern, matching `NotificationActionReceiver`.
-- `WidgetUpdateScheduler` calls remain synchronous (outside the coroutine) — they do not depend on the store.
-- Added imports: `SharedPreferencesNotificationHistoryStore`, `CoroutineScope`, `Dispatchers`, `launch`.
-
-**`SettingsActivity.kt` — initial state reads:**
-- Removed `val prefs = remember { context.getSharedPreferences("uv_app_settings", …) }` and its direct `getBoolean` reads.
-- `dailyNotificationEnabled` and `hourlyNotificationEnabled` now default to `true` and are populated by a `LaunchedEffect(Unit)` that calls `historyStore.snapshot()`.
-- Removed unused `import android.content.Context`.
-- No change to the write path (already routed through `historyStore` in #12).
-
-**Acceptance check:**
-- Project-wide grep for `"uv_app_settings"` returns matches only inside `SharedPreferencesNotificationHistoryStore` (constant declaration + kdoc comment). Zero matches in `ScreenUnlockReceiver` or `SettingsActivity`.
-
-### Test results
-47 tests run, 47 passed (0 failures) — no new tests (behavior change is manual-test-only per spec).
-- NotificationDeciderTest: 22/22 passed
-- NotificationHistoryStoreTest: 13/13 passed
-- NotificationDispatcherTest: 3/3 passed
-- UvRiskTest: 9/9 passed
-
----
-
-## Issue #14 — Notification preferences: purge legacy daily_notification_enabled / hourly_notification_enabled keys
-
-### Status: COMPLETE
-
-### What was implemented
-
-**`NotificationHistoryStore.kt`:**
-- Removed legacy mirror writes from `setDailyEnabled` and `setUvWarningEnabled` — both now write only to the umbrella prefs.
-- Added `purgeSettingsKeys()` private method: removes `LEGACY_DAILY_ENABLED` (`daily_notification_enabled`) and `LEGACY_UV_WARNING_ENABLED` (`hourly_notification_enabled`) from `uv_app_settings` via a single `edit().remove().remove().apply()` chain.
-- Both `setDailyEnabled` and `setUvWarningEnabled` call `purgeSettingsKeys()` after their umbrella write. Subsequent calls are idempotent (removing absent keys is a no-op).
-- Updated kdoc for both setters ("purges the legacy settings keys" instead of "mirrors to legacy key").
-- Updated companion object comment to document both purge triggers.
-- Migration code (`migrate()`) is unchanged — it still reads `LEGACY_DAILY_ENABLED` and `LEGACY_UV_WARNING_ENABLED` as part of the one-time upgrade path.
-
-**`NotificationHistoryStoreTest.kt`:**
-- Updated `setDailyEnabled false is reflected in next snapshot` and `setUvWarningEnabled false is reflected in next snapshot` (from #12) to call `snapshot()` before the setter, matching the realistic call order (SettingsActivity's `LaunchedEffect` loads state before the user can toggle). Previously these tests passed because the setters mirrored to legacy prefs, which migration then re-read; without the mirror, snapshot's first call runs migration first and would overwrite.
-- Replaced `setters mirror values to legacy uv_app_settings keys` with three new tests:
-  - `setDailyEnabled purges both legacy settings keys from uv_app_settings` — seeds both keys, calls setter, asserts neither remains.
-  - `setUvWarningEnabled purges both legacy settings keys from uv_app_settings` — same for UV warning setter.
-  - `snapshot alone does not touch legacy settings keys` — seeds both keys, calls `snapshot()` twice, asserts keys survive.
-
-**Acceptance check:**
-- Project-wide grep for `daily_notification_enabled` and `hourly_notification_enabled` in production code returns matches only in `NotificationHistoryStore.kt` (migration constants + purge constants). Zero matches elsewhere.
-
-### Test results
-49 tests run, 49 passed (0 failures).
-- NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
-- NotificationHistoryStoreTest: 15/15 passed (13 prior + 2 new purge tests + 1 snapshot-isolation test, Robolectric)
-- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
-- UvRiskTest: 9/9 passed (pure JVM, unchanged)
-
----
-
-## Issue #1 — Location change not recognized (background worker)
-
-### Status: COMPLETE
-
-### Root cause
-Background workers (WidgetUpdateWorker, HourlyUpdateWorker, periodic updates) all
-refresh data via `WeatherRepository.getUVForecast()`, which calls
-`LocationService.getCurrentLocation()`. That method only used
-`FusedLocationProviderClient.getCurrentLocation(PRIORITY_BALANCED_POWER_ACCURACY)`,
-which in the background frequently resolves to null (or failed and threw). On null,
-`WeatherRepository.getUVForecast()` falls back to the *stored old coordinates*
-(WeatherRepository.kt:48-54) and re-fetches the OLD city — so a >15km move was never
-detected by any background worker. The CacheManager 15km threshold was fine; the
-workers simply never had a fresh location to compare. It only self-corrected when the
-user opened the app (foreground fix succeeds), matching the reported "~9 hours" and
-"opening the app fixed it" symptom. The stale widget "(city)" label was the visible
-side effect of the stale cached forecast.
-
-### What was implemented
-`LocationService.getCurrentLocation()` now falls back to the device's last known
-location before giving up:
-- `requestFreshLocation()` — the original `getCurrentLocation(...)` fresh-fix path,
-  but failures now `resume(null)` instead of `resumeWithException` (so a transient
-  failure no longer bubbles up and forces the stored-coords fallback).
-- `getLastKnownLocation()` — new fallback using `fusedLocationClient.lastLocation`,
-  which the system / other apps keep current, so it reflects a real location change.
-- `getCurrentLocation()` = `requestFreshLocation() ?: getLastKnownLocation()`.
-The repository's stored-coordinates fallback is now a genuine last resort (both fresh
-and last-known null). Removed the now-unused `resumeWithException` import.
-
-### Clarification gathered (AskUserQuestion)
-- Symptom scope: not sure if numbers were stale; label was wrong.
-- Opening the app fixed it → foreground works, background does not.
-- Move was to a different city (>15km) → distance threshold not the issue.
-
-### Notes / not done
-- `LocationService` wraps a `FusedLocationProviderClient` created in its constructor,
-  so there is no unit-test seam; adding one needs a DI refactor (out of scope for this
-  single fix). No new test added; existing suite re-run to guard against regressions.
-- Pre-existing uncommitted UVWidget.kt label tweak ("UV-Index (city)" -> "city") left
-  untouched in the working tree; it is cosmetic and unrelated to this root-cause fix.
-
-### Test results
-All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
-Only warnings are pre-existing Geocoder deprecation warnings.
-
----
-
-## Issue #15 — Consistent Max. UV hour
-
-### Status: COMPLETE
-
-### Root cause
-`parseWeatherResponse()` stored raw float UV indices (e.g., 6.1, 5.8, 6.4) in `HourlyForecast.uvIndex`.
-The UI and chart displayed them as integers via `.toInt()` (truncation), so 1 PM (UV=5.8→5),
-2 PM (UV=6.1→6), and 4 PM (UV=6.4→6) could all show "6" in the diagram — but `maxByOrNull { it.uvIndex }`
-found 4 PM as the float maximum and set `maxHourToday = 4`, not 1 PM (the first hour displaying UV=6).
-Temperature had already been rounded at parse time since issue #10; UV was not.
-
-### What was implemented
-
-**`WeatherRepository.kt`** — one-line fix in `parseWeatherResponse()`:
-- `uvIndex = response.hourly.uvIndex[index].roundToInt().toDouble()`
-  (same pattern as the temperature rounding from issue #10; `roundToInt` import was already present).
-
-With rounded values, `maxByOrNull { it.uvIndex }` on tied hours returns the **first** element
-(Kotlin's implementation uses strict `<`, so equal values keep the earlier element). This matches
-the spec: "if several hours have the same highest UV index, the tile should reflect the first of those hours."
-
-`reParseWithCurrentTime()` reads `allDayForecasts` from cache (which is now stored with rounded values),
-so the same guarantee holds for re-parses.
-
-No new tests — `parseWeatherResponse` and `reParseWithCurrentTime` are private and have no JVM-testable
-seam without DI refactoring. All 49 existing tests pass (no regressions).
-
-### Test results
-All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
-- NotificationDeciderTest: 22/22 passed (pure JVM, unchanged)
-- NotificationHistoryStoreTest: 15/15 passed (Robolectric, unchanged)
-- NotificationDispatcherTest: 3/3 passed (Robolectric, unchanged)
-- UvRiskTest: 9/9 passed (pure JVM, unchanged)
-
----
-
-## Issue #10 — Temperature diagram: Sufficiently large y-axis
-
-### Status: COMPLETE
-
-### What was implemented
-
-**`WeatherRepository.kt`:**
-- Added `import kotlin.math.roundToInt`.
-- Temperature is now rounded to the nearest integer at parse time:
-  `temperature = response.hourly.temperature[index].roundToInt().toDouble()`
-  This prevents 24.7°C being treated as 24°C downstream (truncation bug).
-
-**`UVChartComposables.kt`:**
-- Added `import kotlin.math.ceil`, `import kotlin.math.floor`, `import kotlin.math.roundToInt`.
-- Replaced the old y-axis bounds logic with the correct algorithm:
-  - `yAxisMin`: if `minTemp % 5 == 0` → `minTemp - 5`; else `floor(minTemp / 5.0) * 5`
-  - `yAxisMax`: if `maxTemp % 5 == 0` → `maxTemp + 5`; else `ceil(maxTemp / 5.0) * 5`
-- Changed `entries.minOfOrNull { it.y }?.toInt()` to `?.roundToInt()` for correctness.
-
-**Examples verified:**
-- max = 25°C (multiple of 5) → y-axis max = 30°C ✓
-- max = 24.7°C → rounds to 25 → y-axis max = 30°C ✓
-- max = 24°C → y-axis max = 25°C ✓
-- min = 10°C (multiple of 5) → y-axis min = 5°C ✓
-- min = 13°C → y-axis min = 10°C ✓
-
-### Test results
-All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL (49/49).
-
----
-
-## Issue #18 — Wind widget (1x1): widget name shown in picker
-
-### Status: COMPLETE
-
-### What was implemented
-
-The 1x1 Wind Widget (added in #20) had no `android:label` on its receiver, so the Android
-widget picker showed it under the app name "UV-Index" — indistinguishable from the UV
-index widgets, despite displaying wind direction/speed.
-
-**`AndroidManifest.xml`:**
-- Added `android:label="@string/wind_widget_label"` to the `.widget.WindWidget` receiver.
-
-**`strings.xml`:**
-- Added `wind_widget_label` = "Wind".
-
-### Test results
-All existing tests pass: `:app:testDebugUnitTest` BUILD SUCCESSFUL.

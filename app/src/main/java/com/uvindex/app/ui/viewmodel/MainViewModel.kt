@@ -3,19 +3,25 @@ package com.uvindex.app.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.uvindex.app.data.local.DataStoreManager
 import com.uvindex.app.data.model.UVForecast
 import com.uvindex.app.data.repository.WeatherRepository
-import com.uvindex.app.widget.UVWidget
-import com.uvindex.app.widget.UVWidgetMax
 import com.uvindex.app.util.WidgetUpdateHelper
+import com.uvindex.app.uv.SkinType
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = WeatherRepository(application)
+    private val dataStoreManager = DataStoreManager(application)
+
+    val skinType: StateFlow<SkinType?> = dataStoreManager.getSkinType()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _uiState = MutableStateFlow<UVUiState>(UVUiState.Idle)
     val uiState: StateFlow<UVUiState> = _uiState.asStateFlow()
