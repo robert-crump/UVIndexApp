@@ -92,10 +92,19 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
     val currentSkinType by dataStoreManager.getSkinType().collectAsState(initial = null)
     var skinTypeDropdownExpanded by remember { mutableStateOf(false) }
 
+    // Stop blinking automatically after 3 s so it doesn't run indefinitely.
+    var activeHighlight by remember { mutableStateOf(highlightSkinType) }
+    LaunchedEffect(highlightSkinType) {
+        if (highlightSkinType) {
+            kotlinx.coroutines.delay(3000)
+            activeHighlight = false
+        }
+    }
+
     val infiniteTransition = rememberInfiniteTransition(label = "skinTypeHighlight")
     val highlightAlpha by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = if (highlightSkinType) 0.18f else 0f,
+        targetValue = if (activeHighlight) 0.18f else 0f,
         animationSpec = infiniteRepeatable(
             animation = tween(650, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
@@ -156,7 +165,8 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                 BackgroundLocationStep.AlreadyGranted -> backgroundLocationEnabled = true
                 BackgroundLocationStep.RequestBackgroundInline ->
                     backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                BackgroundLocationStep.DirectToSystemSettings -> openAppSettings()
+                BackgroundLocationStep.DirectToSystemSettings ->
+                    backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                 BackgroundLocationStep.RequestForegroundFirst -> Unit // not reachable here
             }
         }
@@ -230,7 +240,7 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                     )
                     ExposedDropdownMenuBox(
                         expanded = skinTypeDropdownExpanded,
-                        onExpandedChange = { skinTypeDropdownExpanded = !skinTypeDropdownExpanded }
+                        onExpandedChange = { skinTypeDropdownExpanded = it }
                     ) {
                         OutlinedTextField(
                             value = currentSkinType?.let { "${it.label} – ${it.description}" }
