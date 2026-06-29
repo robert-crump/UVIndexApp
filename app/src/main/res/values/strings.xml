@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">UV-Index</string>
-    <string name="widget_description">Zeigt den UV-Index für die nächsten 4 Stunden</string>
-    <string name="widget_max_description">Zeigt den maximalen UV-Index des Tages</string>
-    <string name="wind_widget_description">Zeigt die aktuelle Windrichtung und -geschwindigkeit</string>
+    <string name="widget_description">UV-Index der nächsten 4 Stunden</string>
+    <string name="widget_max_description">Maximaler UV-Index des Tages</string>
+    <string name="wind_widget_description">Aktuelle Windrichtung und -geschwindigkeit</string>
     <string name="wind_widget_label">Wind</string>
+
+    <!-- Background location opt-in (Settings) -->
+    <string name="settings_location_heading">Standort</string>
+    <string name="settings_background_location_title">Automatische Standortaktualisierung</string>
+    <string name="settings_background_location_description">Aktualisiert die Widgets automatisch auf deinen aktuellen Standort, wenn du reist – auch ohne die App zu öffnen. Dafür wird der Standortzugriff „Immer zulassen“ benötigt.</string>
+    <string name="background_location_disclosure_title">Standort im Hintergrund</string>
+    <string name="background_location_disclosure_body">Damit deine Widgets nach einem Ortswechsel automatisch den UV-Index für deinen aktuellen Standort anzeigen, greift die App auch im Hintergrund auf deinen Standort zu. Wähle dazu im nächsten Schritt „Immer zulassen“. Der Standort wird ausschließlich zum Abrufen lokaler UV-Daten verwendet.</string>
+    <string name="background_location_disclosure_confirm">Weiter</string>
+    <string name="background_location_disclosure_cancel">Abbrechen</string>
+    <string name="background_location_revoke_title">Im Hintergrund deaktivieren</string>
+    <string name="background_location_revoke_body">Die Standortberechtigung kann nur in den Systemeinstellungen geändert werden. Setze den Standortzugriff dort auf „Nur während der Nutzung der App“, um die automatische Aktualisierung im Hintergrund zu deaktivieren.</string>
+    <string name="background_location_open_settings">Einstellungen öffnen</string>
 </resources>

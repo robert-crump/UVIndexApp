@@ -1,3 +1,75 @@
+## Issue #21 — Widgets not updating after location change
+
+### Status: COMPLETE
+
+### Root cause
+Widgets carry no location of their own — they render whatever forecast is in the cache.
+The cache is refreshed by `WidgetUpdateWorker`, a *background* WorkManager job (scheduled in
+`UVIndexApplication` every 30 min, `WidgetUpdateScheduler` every 15 min, plus screen-unlock).
+That worker calls `WeatherRepository.getUVForecast()` → `LocationService.getCurrentLocation()`.
+The app declared **only foreground** location permissions (`ACCESS_COARSE/FINE_LOCATION`);
+there was no `ACCESS_BACKGROUND_LOCATION`. On Android 10+ a background process is denied
+location: the fresh fix returns null *and* the `lastLocation` fallback (#1) is restricted, so
+`getUVForecast()` fell back to the **stored coordinates = City A** and re-fetched City A
+indefinitely. Only a foreground fix (app open) succeeded — exactly matching the report
+("opening the app fixes it instantly; closing it updates the widgets immediately").
+
+There is no way to relocate widgets without opening the app unless the app holds
+`ACCESS_BACKGROUND_LOCATION` — an Android permission-model constraint, not a code bug.
+
+### What was implemented
+Chosen approach: add `ACCESS_BACKGROUND_LOCATION`, gated behind an explicit **opt-in toggle
+in Settings** with a prominent in-app disclosure (best Play-policy posture, lowest UX
+intrusion). Existing default behavior is unchanged for users who don't opt in.
+
+**`AndroidManifest.xml`:**
+- Added `<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />`
+  (auto-granted with foreground on API ≤28; runtime-gated on 29+).
+
+**New pure helper `com.uvindex.app.data.location.BackgroundLocationPermission`
+(`app/src/main/java/com/uvindex/app/data/location/BackgroundLocationPermission.kt`):**
+- `enum class BackgroundLocationStep { AlreadyGranted, RequestForegroundFirst,
+  RequestBackgroundInline, DirectToSystemSettings }`.
+- `fun nextBackgroundLocationStep(sdkInt, foregroundGranted, backgroundGranted)` — pure,
+  Android-free decision for the multi-step permission routing (background requires foreground
+  first; can only be requested via dialog on API 29; API 30+ must be granted in system
+  settings). Same extract-pure-logic-and-test-it pattern as `travelOctant` / `classifyUvRisk`.
+
+**`SettingsActivity.kt`:**
+- New "Standort" section with one Switch ("Automatische Standortaktualisierung"). The Switch
+  mirrors the **real** OS grant state, re-read on every `ON_RESUME` via `LifecycleEventEffect`
+  (the user may grant/revoke in system settings), not a stored bool.
+- Toggling on shows a disclosure `AlertDialog` first (Play "prominent disclosure"); on confirm
+  it calls `nextBackgroundLocationStep(...)` and routes: `RequestForegroundFirst` →
+  foreground-permission launcher (then continues); `RequestBackgroundInline` →
+  `ACCESS_BACKGROUND_LOCATION` launcher (API 29); `DirectToSystemSettings` → opens
+  `ACTION_APPLICATION_DETAILS_SETTINGS` for the package (API 30+ "Allow all the time").
+- Toggling off shows a short dialog and opens system settings (can't revoke programmatically).
+- Launchers wired via `rememberLauncherForActivityResult` inside the composable.
+
+**`strings.xml`:** added German strings for the section heading, toggle label/description,
+disclosure dialog (title/body/confirm/cancel), and the revoke dialog (title/body/open-settings).
+
+### Notes / not done
+- No change needed in `WidgetUpdateWorker`, `WeatherRepository`, or `LocationService`: once
+  `ACCESS_BACKGROUND_LOCATION` is granted, the worker's existing `getCurrentLocation()` call
+  returns a real fix and the existing `shouldFetchNewData` / day-change logic relocates the
+  cache on its own (subject to Doze throttling location to a few fixes/hour, fine for a 30-min
+  widget refresh). The stale stored-coords fallback stays as the offline last resort.
+- The Activity wiring (dialogs, launchers, system-settings routing) has no DI seam (same
+  constraint noted for `MainActivity`/widget code), so it is covered by compile + manual run,
+  not unit tests. The trickiest piece — the permission-step routing — is extracted into the
+  pure `nextBackgroundLocationStep` and unit-tested.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 65 tests run, 65 passed (0 failures).
+- BackgroundLocationPermissionTest: 5/5 passed (pure JVM, new: already-granted short-circuit,
+  foreground-missing, API ≤28 granted-by-foreground, API 29 inline, API 30+ direct-to-settings).
+- All 60 pre-existing tests unchanged and still green.
+`:app:assembleDebug` — BUILD SUCCESSFUL.
+
+---
+
 ## Issue #20 — Wind Widget (1x1) on the home screen
 
 ### Status: COMPLETE
