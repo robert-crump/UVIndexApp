@@ -1,3 +1,33 @@
+## Issue #23 — Simplify protection notice
+
+### Status: COMPLETE
+
+### What was implemented
+
+**`InfoActivity.kt` (`InfoScreen` composable):**
+- The two prose explanation blocks for elevated UV ranges were replaced with short,
+  UV-index-based recommendations in the "Schutzempfehlung: ..." format from the issue's
+  own example.
+- Range split changed from 3-7 / 8+ to 3-5 / 6+, matching the app's actual `UvRisk`
+  thresholds (`classifyUvRisk` in `UvRisk.kt`: None <3, Moderate 3-5, High 6-7,
+  VeryHigh 8+) so "medium" and "high or very high" line up with the risk levels used
+  elsewhere in the app (e.g. `NotificationDecider`).
+  - "3-5: Mittel" → "Schutzempfehlung: Sonnenbrille, Sonnencreme"
+  - "Ab 6: Hoch bis sehr hoch" → "Schutzempfehlung: Schatten, Sonnenbrille, Sonnencreme"
+- The 0-2 "Kein Schutz erforderlich" block and the general intro paragraph were left as-is
+  — they were already short and aren't a "protection recommendation" in the same sense.
+
+### Notes / not done
+- This is a static text screen (`InfoActivity`/`InfoScreen`), not unit-testable; verified via
+  a clean Kotlin compile and the full existing test suite (no regressions expected — no
+  production logic changed, text-only).
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all existing tests still pass (no new tests;
+change is UI text only).
+
+---
+
 ## Issue #22 — Skin type and self-protection time
 
 ### Status: COMPLETE

@@ -95,27 +95,27 @@ fun InfoScreen(onBackClick: () -> Unit) {
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // TextView 3: Moderate to high (3-7)
+            // TextView 3: Moderate (3-5)
             Text(
-                text = "3-7: Mäßig bis hoch",
+                text = "3-5: Mittel",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Schutz erforderlich. Halte dich möglichst im Schatten auf. Trag schützende Kleidung, nutze Sonnenmilch und trage eine Sonnenbrille.",
+                text = "Schutzempfehlung: Sonnenbrille, Sonnencreme",
                 style = MaterialTheme.typography.bodyMedium,
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // TextView 4: Very high to extreme (above 8)
+            // TextView 4: High to very high (6+)
             Text(
-                text = "Über 8: Sehr hoch bis extrem",
+                text = "Ab 6: Hoch bis sehr hoch",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Zusätzlicher Schutz erforderlich. Sei vorsichtig, wenn du dich im Freien aufhältst und bleib im Schatten.",
+                text = "Schutzempfehlung: Schatten, Sonnenbrille, Sonnencreme",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
