@@ -21,9 +21,15 @@ enum class SkinType(
     }
 }
 
-fun formatProtectionTime(minutes: Int): String {
-    if (minutes < 60) return "$minutes min"
+data class ProtectionTimePart(val value: String, val unit: String)
+
+fun protectionTimeParts(minutes: Int): List<ProtectionTimePart> {
+    if (minutes < 60) return listOf(ProtectionTimePart("$minutes", "m"))
     val h = minutes / 60
     val m = minutes % 60
-    return if (m == 0) "$h h" else "$h h ${String.format("%02d", m)} min"
+    return if (m == 0) {
+        listOf(ProtectionTimePart("$h", "h"))
+    } else {
+        listOf(ProtectionTimePart("$h", "h"), ProtectionTimePart("$m", "m"))
+    }
 }

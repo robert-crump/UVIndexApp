@@ -29,7 +29,8 @@ import com.uvindex.app.ui.theme.UVColorHelper
 import com.uvindex.app.ui.components.UVBarChart
 import com.uvindex.app.ui.components.TemperatureLineChart
 import com.uvindex.app.uv.SkinType
-import com.uvindex.app.uv.formatProtectionTime
+import com.uvindex.app.uv.ProtectionTimePart
+import com.uvindex.app.uv.protectionTimeParts
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import android.content.Context
@@ -438,6 +439,11 @@ fun TemperatureCard(
                     fontWeight = FontWeight.Bold,
                     color = androidx.compose.ui.graphics.Color.Black
                 )
+                // Empty line so "Temperatur" aligns with "Eigenschutz" in SelfProtectionCard
+                Text(
+                    text = "",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }
@@ -499,14 +505,15 @@ fun SelfProtectionCard(
                             color = androidx.compose.ui.graphics.Color.Black
                         )
                         Text(
-                            text = "Eigenschutzzeit",
+                            text = "Eigenschutz",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = androidx.compose.ui.graphics.Color.Black
                         )
                         Text(
-                            text = skinType.label,
+                            text = "(${skinType.label})",
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
                             color = androidx.compose.ui.graphics.Color.Black
                         )
                     }
@@ -515,6 +522,7 @@ fun SelfProtectionCard(
         }
         else -> {
             val minutes = skinType.protectionMinutes(currentUV)
+            val parts = protectionTimeParts(minutes)
             Card(modifier = modifier) {
                 Box(
                     modifier = Modifier
@@ -525,21 +533,36 @@ fun SelfProtectionCard(
                         modifier = Modifier.align(Alignment.CenterStart),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
+                        Row {
+                            parts.forEachIndexed { index, part ->
+                                if (index > 0) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                Text(
+                                    text = part.value,
+                                    style = MaterialTheme.typography.displayLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = androidx.compose.ui.graphics.Color.Black,
+                                    modifier = Modifier.alignByBaseline()
+                                )
+                                Text(
+                                    text = part.unit,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    color = androidx.compose.ui.graphics.Color.Black,
+                                    modifier = Modifier.alignByBaseline()
+                                )
+                            }
+                        }
                         Text(
-                            text = formatProtectionTime(minutes),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = androidx.compose.ui.graphics.Color.Black
-                        )
-                        Text(
-                            text = "Eigenschutzzeit",
+                            text = "Eigenschutz",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = androidx.compose.ui.graphics.Color.Black
                         )
                         Text(
-                            text = skinType.label,
+                            text = "(${skinType.label})",
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
                             color = androidx.compose.ui.graphics.Color.Black
                         )
                     }
