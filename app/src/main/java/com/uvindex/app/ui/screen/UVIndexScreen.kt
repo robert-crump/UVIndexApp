@@ -31,6 +31,7 @@ import com.uvindex.app.ui.components.TemperatureLineChart
 import com.uvindex.app.uv.SkinType
 import com.uvindex.app.uv.ProtectionTimePart
 import com.uvindex.app.uv.protectionTimeParts
+import com.uvindex.app.wind.travelOctant
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import android.content.Context
@@ -205,6 +206,20 @@ fun CompactUVContent(forecast: UVForecast, skinType: SkinType?, onOpenSettings: 
                     .weight(1f)
                     .aspectRatio(1.11f)
             )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            WindCard(
+                windSpeed = forecast.currentHour.windSpeed,
+                windDirection = forecast.currentHour.windDirection,
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1.11f)
+            )
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -573,6 +588,58 @@ fun SelfProtectionCard(
 }
 
 @Composable
+fun WindCard(
+    windSpeed: Double,
+    windDirection: Double,
+    modifier: Modifier = Modifier
+) {
+    Card(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.align(Alignment.CenterStart),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text(
+                        text = "${windSpeed.toInt()}",
+                        style = MaterialTheme.typography.displayLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = androidx.compose.ui.graphics.Color.Black
+                    )
+                    Text(
+                        text = "km/h",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = androidx.compose.ui.graphics.Color.Black
+                    )
+                }
+                Text(
+                    text = if (windSpeed == 0.0) {
+                        "Windstill"
+                    } else {
+                        "Richtung ${travelOctant(windDirection).name}"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = androidx.compose.ui.graphics.Color.Black
+                )
+                // Empty line to keep the same 3-line shape as the sibling cards
+                Text(
+                    text = "",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun ErrorContent(message: String, onRetry: () -> Unit) {
     Column(
         modifier = Modifier
@@ -902,6 +969,19 @@ fun SkeletonUVContent() {
                     .weight(1f)
                     .aspectRatio(1.11f)
             )
+        }
+
+        // Zeile 4: Wind
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SkeletonCard(
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1.11f)
+            )
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
