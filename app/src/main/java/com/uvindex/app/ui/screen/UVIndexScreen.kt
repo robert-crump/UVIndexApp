@@ -20,8 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.uvindex.app.data.model.HourlyForecast
-import com.uvindex.app.data.model.TimeSlot
 import com.uvindex.app.data.model.UVForecast
 import com.uvindex.app.ui.viewmodel.MainViewModel
 import com.uvindex.app.ui.viewmodel.UVUiState
@@ -29,17 +27,12 @@ import com.uvindex.app.ui.theme.UVColorHelper
 import com.uvindex.app.ui.components.UVBarChart
 import com.uvindex.app.ui.components.TemperatureLineChart
 import com.uvindex.app.uv.SkinType
-import com.uvindex.app.uv.ProtectionTimePart
 import com.uvindex.app.uv.protectionTimeParts
 import com.uvindex.app.wind.travelOctant
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import android.content.Context
 import android.content.Intent
 import com.uvindex.app.InfoActivity
 import com.uvindex.app.SettingsActivity
 import androidx.compose.ui.text.style.TextAlign
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
@@ -81,7 +74,7 @@ fun UVIndexScreen(viewModel: MainViewModel) {
                                 text = { Text("Info") },
                                 onClick = {
                                     showMenu = false
-                                    val intent = android.content.Intent(context, InfoActivity::class.java)
+                                    val intent = Intent(context, InfoActivity::class.java)
                                     context.startActivity(intent)
                                 }
                             )
@@ -89,7 +82,7 @@ fun UVIndexScreen(viewModel: MainViewModel) {
                                 text = { Text("Einstellungen") },
                                 onClick = {
                                     showMenu = false
-                                    val intent = android.content.Intent(context, SettingsActivity::class.java)
+                                    val intent = Intent(context, SettingsActivity::class.java)
                                     context.startActivity(intent)
                                 }
                             )
@@ -603,22 +596,27 @@ fun WindCard(
                 modifier = Modifier.align(Alignment.CenterStart),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.Top
-                ) {
+                Row {
                     Text(
                         text = "${windSpeed.toInt()}",
                         style = MaterialTheme.typography.displayLarge,
                         fontWeight = FontWeight.Bold,
-                        color = androidx.compose.ui.graphics.Color.Black
+                        color = androidx.compose.ui.graphics.Color.Black,
+                        modifier = Modifier.alignByBaseline()
                     )
                     Text(
                         text = "km/h",
                         style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.padding(top = 8.dp),
-                        color = androidx.compose.ui.graphics.Color.Black
+                        color = androidx.compose.ui.graphics.Color.Black,
+                        modifier = Modifier.alignByBaseline()
                     )
                 }
+                Text(
+                    text = "Wind",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = androidx.compose.ui.graphics.Color.Black
+                )
                 Text(
                     text = if (windSpeed == 0.0) {
                         "Windstill"
@@ -628,11 +626,6 @@ fun WindCard(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = androidx.compose.ui.graphics.Color.Black
-                )
-                // Empty line to keep the same 3-line shape as the sibling cards
-                Text(
-                    text = "",
-                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
