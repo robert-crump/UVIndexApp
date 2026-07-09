@@ -526,7 +526,7 @@ fun SelfProtectionCard(
                             color = androidx.compose.ui.graphics.Color.Black
                         )
                         Text(
-                            text = "(${skinType.label})",
+                            text = skinType.label,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = androidx.compose.ui.graphics.Color.Black
