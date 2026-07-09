@@ -16,7 +16,7 @@ interface OpenMeteoApi {
         @Query("forecast_days") forecastDays: Int = 1
     ): WeatherResponse
 
-    @GET("v1/air-quality")
+    @GET("https://air-quality-api.open-meteo.com/v1/air-quality")
     suspend fun getAirQuality(
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,

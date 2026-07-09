@@ -24,6 +24,7 @@ import com.uvindex.app.data.model.UVForecast
 import com.uvindex.app.ui.viewmodel.MainViewModel
 import com.uvindex.app.ui.viewmodel.UVUiState
 import com.uvindex.app.ui.theme.UVColorHelper
+import com.uvindex.app.ui.theme.AQIColorHelper
 import com.uvindex.app.ui.components.UVBarChart
 import com.uvindex.app.ui.components.TemperatureLineChart
 import com.uvindex.app.uv.SkinType
@@ -212,7 +213,12 @@ fun CompactUVContent(forecast: UVForecast, skinType: SkinType?, onOpenSettings: 
                     .weight(1f)
                     .aspectRatio(1.11f)
             )
-            Spacer(modifier = Modifier.weight(1f))
+            AirQualityCard(
+                aqi = forecast.airQuality,
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1.11f)
+            )
         }
     }
 }
@@ -692,48 +698,72 @@ fun AirQualityCard(
     aqi: Double?,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterStart),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                horizontalAlignment = Alignment.Start
-            ) {
-                if (aqi != null) {
-                    val level = com.uvindex.app.data.model.getAirQualityLevel(aqi)
-                    val color = androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(level.color))
+    val context = androidx.compose.ui.platform.LocalContext.current
 
-                    // Traffic-light circle, left-aligned
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .background(color, shape = androidx.compose.foundation.shape.CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {}
-                } else {
-                    // Show "N/A" in black when no AQI is available
+    if (aqi != null) {
+        val aqiColor = AQIColorHelper.getColor(aqi, context, AQIColorHelper.ColorType.FOREGROUND)
+        val backgroundColor = AQIColorHelper.getColor(aqi, context, AQIColorHelper.ColorType.BACKGROUND)
+        val level = com.uvindex.app.data.model.getAirQualityLevel(aqi)
+
+        Card(
+            modifier = modifier,
+            colors = CardDefaults.cardColors(containerColor = backgroundColor)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.align(Alignment.CenterStart),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = aqi.toInt().toString(),
+                        style = MaterialTheme.typography.displayLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = aqiColor,
+                        modifier = Modifier.fillMaxWidth(0.5f)
+                    )
+                    Text(
+                        text = "Luftqualität",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = aqiColor
+                    )
+                    Text(
+                        text = level.label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = aqiColor
+                    )
+                }
+            }
+        }
+    } else {
+        Card(modifier = modifier) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.align(Alignment.CenterStart),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
                         text = "N/A",
                         style = MaterialTheme.typography.displayLarge,
                         fontWeight = FontWeight.Bold,
                         color = androidx.compose.ui.graphics.Color.Black
                     )
+                    Text(
+                        text = "Luftqualität",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = androidx.compose.ui.graphics.Color.Black
+                    )
                 }
-
-                // Label in black, bold
-                Text(
-                    text = "Luftqualität",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = androidx.compose.ui.graphics.Color.Black
-                )
             }
         }
     }
@@ -964,7 +994,7 @@ fun SkeletonUVContent() {
             )
         }
 
-        // Zeile 4: Wind
+        // Zeile 4: Wind und Luftqualität
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -974,7 +1004,11 @@ fun SkeletonUVContent() {
                     .weight(1f)
                     .aspectRatio(1.11f)
             )
-            Spacer(modifier = Modifier.weight(1f))
+            SkeletonCard(
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1.11f)
+            )
         }
     }
 }

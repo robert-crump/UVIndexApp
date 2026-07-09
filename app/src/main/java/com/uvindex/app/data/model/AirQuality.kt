@@ -15,11 +15,17 @@ data class CurrentAirQuality(
     val europeanAqi: Double
 )
 
-enum class AirQualityLevel(val label: String, val color: String) {
-    GOOD("Good", "#006400"),           // Dark green
-    FAIR("Fair", "#90EE90"),           // Light green
-    MODERATE("Moderate", "#FFD700"),   // Gelb
-    POOR("Poor", "#FF0000")            // Rot
+/**
+ * European Air Quality Index (EAQI) levels.
+ * Breakpoints follow the EEA's official 6-level scale (0-20-40-60-80-100+).
+ */
+enum class AirQualityLevel(val label: String) {
+    GOOD("Gut"),
+    FAIR("Zufriedenstellend"),
+    MODERATE("Mäßig"),
+    POOR("Schlecht"),
+    VERY_POOR("Sehr schlecht"),
+    EXTREMELY_POOR("Extrem schlecht")
 }
 
 fun getAirQualityLevel(aqi: Double): AirQualityLevel {
@@ -27,6 +33,8 @@ fun getAirQualityLevel(aqi: Double): AirQualityLevel {
         aqi <= 20 -> AirQualityLevel.GOOD
         aqi <= 40 -> AirQualityLevel.FAIR
         aqi <= 60 -> AirQualityLevel.MODERATE
-        else -> AirQualityLevel.POOR
+        aqi <= 80 -> AirQualityLevel.POOR
+        aqi <= 100 -> AirQualityLevel.VERY_POOR
+        else -> AirQualityLevel.EXTREMELY_POOR
     }
 }
