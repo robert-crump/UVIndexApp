@@ -80,6 +80,19 @@
                 android:resource="@xml/wind_widget_info" />
         </receiver>
 
+        <!-- Self-protection Time Widget (1x1) -->
+        <receiver
+            android:name=".widget.SelfProtectionTimeWidget"
+            android:exported="true"
+            android:label="@string/self_protection_time_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/self_protection_time_widget_info" />
+        </receiver>
+
         <receiver
             android:name=".worker.NotificationActionReceiver"
             android:exported="false">

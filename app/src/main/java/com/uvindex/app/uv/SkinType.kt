@@ -33,3 +33,7 @@ fun protectionTimeParts(minutes: Int): List<ProtectionTimePart> {
         listOf(ProtectionTimePart("$h", "h"), ProtectionTimePart("$m", "m"))
     }
 }
+
+// Compact single-string rendering for space-constrained UI (e.g. "15m", "1h15m")
+fun protectionTimeCompact(minutes: Int): String =
+    protectionTimeParts(minutes).joinToString("") { "${it.value}${it.unit}" }

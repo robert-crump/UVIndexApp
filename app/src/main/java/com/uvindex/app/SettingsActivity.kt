@@ -36,6 +36,7 @@ import com.uvindex.app.data.location.BackgroundLocationStep
 import com.uvindex.app.data.location.nextBackgroundLocationStep
 import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.ui.theme.UVIndexTheme
+import com.uvindex.app.util.WidgetUpdateHelper
 import com.uvindex.app.uv.SkinType
 import com.uvindex.app.widget.NotificationScheduler
 import kotlinx.coroutines.launch
@@ -275,7 +276,10 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                                         }
                                     },
                                     onClick = {
-                                        coroutineScope.launch { dataStoreManager.saveSkinType(type) }
+                                        coroutineScope.launch {
+                                            dataStoreManager.saveSkinType(type)
+                                            WidgetUpdateHelper.updateAllWidgets(context)
+                                        }
                                         skinTypeDropdownExpanded = false
                                     },
                                     contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding

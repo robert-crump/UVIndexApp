@@ -104,6 +104,21 @@ class WidgetUpdateWorker(
             Log.w(TAG, "WindWidget not found or update failed: ${e.message}")
         }
 
+        // Update 1x1 Self-protection Time Widget (falls vorhanden)
+        try {
+            val selfProtectionWidgetIntent = Intent(applicationContext, SelfProtectionTimeWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            val selfProtectionWidgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(applicationContext, SelfProtectionTimeWidget::class.java)
+            )
+            selfProtectionWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, selfProtectionWidgetIds)
+            applicationContext.sendBroadcast(selfProtectionWidgetIntent)
+            Log.d(TAG, "SelfProtectionTimeWidget updated (${selfProtectionWidgetIds.size} instances)")
+        } catch (e: Exception) {
+            Log.w(TAG, "SelfProtectionTimeWidget not found or update failed: ${e.message}")
+        }
+
         Log.d(TAG, "All widgets updated")
     }
 }

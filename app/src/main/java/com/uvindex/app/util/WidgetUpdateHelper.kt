@@ -4,8 +4,10 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import com.uvindex.app.widget.SelfProtectionTimeWidget
 import com.uvindex.app.widget.UVWidget
 import com.uvindex.app.widget.UVWidgetMax
+import com.uvindex.app.widget.WindWidget
 
 /**
  * Utility object for widget updates.
@@ -26,6 +28,12 @@ object WidgetUpdateHelper {
         
         // Update Max UV Widget (1x1)
         updateWidget(context, appWidgetManager, UVWidgetMax::class.java)
+
+        // Update Wind Widget (1x1)
+        updateWidget(context, appWidgetManager, WindWidget::class.java)
+
+        // Update Self-protection Time Widget (1x1)
+        updateWidget(context, appWidgetManager, SelfProtectionTimeWidget::class.java)
     }
     
     /**

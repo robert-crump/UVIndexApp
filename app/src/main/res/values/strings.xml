@@ -5,6 +5,8 @@
     <string name="widget_max_description">Maximaler UV-Index des Tages</string>
     <string name="wind_widget_description">Aktuelle Windrichtung und -geschwindigkeit</string>
     <string name="wind_widget_label">Wind</string>
+    <string name="self_protection_time_widget_description">Eigenschutzzeit basierend auf Hauttyp und aktuellem UV-Index</string>
+    <string name="self_protection_time_widget_label">Eigenschutz</string>
 
     <!-- Background location opt-in (Settings) -->
     <string name="settings_location_heading">Standort</string>
