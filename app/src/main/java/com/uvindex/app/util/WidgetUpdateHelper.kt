@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import com.uvindex.app.widget.AirQualityWidget
 import com.uvindex.app.widget.SelfProtectionTimeWidget
 import com.uvindex.app.widget.UVWidget
 import com.uvindex.app.widget.UVWidgetMax
@@ -34,6 +35,9 @@ object WidgetUpdateHelper {
 
         // Update Self-protection Time Widget (1x1)
         updateWidget(context, appWidgetManager, SelfProtectionTimeWidget::class.java)
+
+        // Update Air Quality Widget (1x1)
+        updateWidget(context, appWidgetManager, AirQualityWidget::class.java)
     }
     
     /**

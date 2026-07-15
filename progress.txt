@@ -1,3 +1,64 @@
+## Issue #26 — Widget: Air quality index
+
+### Status: COMPLETE
+
+### What was implemented
+New 1x1 home-screen widget showing the current European AQI (EAQI), following the same
+pattern as the existing `WindWidget`/`SelfProtectionTimeWidget`/`UVWidgetMax` and using the
+already-cached `UVForecast.airQuality` field (wired up in #the AQI-card work, commit
+563b9f2) — no new data fetching needed.
+
+**New `app/src/main/res/layout/air_quality_widget.xml`:** same two-line vertical layout as
+`self_protection_time_widget.xml` — 12sp bold "Luft" header over a 22sp bold value, on the
+shared neutral `widget_max_background` drawable.
+
+**New `app/src/main/res/xml/air_quality_widget_info.xml`:** 1x1 (`40dp` min), same shape as
+the other 1x1 widget-info files.
+
+**New `com.uvindex.app.widget.AirQualityWidget`
+(`app/src/main/java/com/uvindex/app/widget/AirQualityWidget.kt`):** mirrors
+`SelfProtectionTimeWidget` minus its skin-type gating branch (AQI has no equivalent
+per-user precondition). Reads `forecast.airQuality` (`Double?`) from
+`WeatherRepository.getCachedForecastForWidget()` (cache-only, same as all other widgets).
+Non-null → big number (`aqi.toInt()`) tinted via `AQIColorHelper.getColorInt(aqi, context,
+FOREGROUND)` — reusing the in-app 6-level EAQI palette rather than inventing a separate
+hardcoded widget palette (a deliberate divergence from `UVColorHelper.getWidgetUVColor`'s
+precedent, per user decision during pre-implementation grilling). Null AQI (cache succeeded
+but the AQI fetch itself failed upstream) and full cache-fetch failure both fall back to the
+same "–" / `#999999` gray — no separate visual state, since the user can't act on the
+distinction. Click always opens `MainActivity` (no branching, unlike Self-Protection's
+Settings redirect for unset skin type).
+
+**`AndroidManifest.xml`:** registered `.widget.AirQualityWidget` as an exported receiver
+(`APPWIDGET_UPDATE` intent-filter + `air_quality_widget_info.xml` meta-data) so it appears
+in the widget picker.
+
+**`strings.xml`:** added `air_quality_widget_label` ("Luftqualität") and
+`air_quality_widget_description`.
+
+**`WidgetUpdateWorker.kt` (`updateAllWidgets`) and `util/WidgetUpdateHelper.kt`
+(`updateAllWidgets`):** both existing widget-broadcast fan-outs (worker-driven periodic
+refresh, and the general-purpose helper used elsewhere) now also broadcast
+`ACTION_APPWIDGET_UPDATE` to `AirQualityWidget` instances, each wrapped the same way as the
+other widgets so a missing widget doesn't fail the whole update pass.
+
+### Notes / not done
+- Pre-implementation: used `/grill-me` to resolve four open design branches with the user
+  before writing code — widget content (number only, no level label), color mechanism (reuse
+  `AQIColorHelper`'s in-app palette, text-only, no background tint — deviating from the
+  in-app card's background-tint behavior to stay consistent with the other widgets), null-AQI
+  fallback (same as fetch failure), and click target (unconditional, no Settings branch).
+- No new unit tests: same untestable-without-DI shape as `WindWidget`/`UVWidgetMax` (widget
+  provider only orchestrates RemoteViews calls and a cache-only repository read). Verified via
+  clean `compileDebugKotlin`, full green suite, and `assembleDebug`.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 76 tests run, 76 passed (0 failures). All 76
+pre-existing tests unchanged and green (no new tests added; behavior is widget-orchestration
+only). `:app:assembleDebug` — BUILD SUCCESSFUL.
+
+---
+
 ## Issue #27 — Notifications: Multiple fires
 
 ### Status: COMPLETE

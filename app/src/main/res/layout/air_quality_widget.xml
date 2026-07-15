@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_air_quality_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@drawable/widget_max_background">
+
+    <!-- Header -->
+    <TextView
+        android:id="@+id/widget_air_quality_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Luft"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:gravity="center" />
+
+    <!-- AQI value -->
+    <TextView
+        android:id="@+id/widget_air_quality_value"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="-"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="#999999"
+        android:gravity="center" />
+
+</LinearLayout>

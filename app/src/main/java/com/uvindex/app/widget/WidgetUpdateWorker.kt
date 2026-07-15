@@ -119,6 +119,21 @@ class WidgetUpdateWorker(
             Log.w(TAG, "SelfProtectionTimeWidget not found or update failed: ${e.message}")
         }
 
+        // Update 1x1 Air Quality Widget (falls vorhanden)
+        try {
+            val airQualityWidgetIntent = Intent(applicationContext, AirQualityWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            val airQualityWidgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(applicationContext, AirQualityWidget::class.java)
+            )
+            airQualityWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, airQualityWidgetIds)
+            applicationContext.sendBroadcast(airQualityWidgetIntent)
+            Log.d(TAG, "AirQualityWidget updated (${airQualityWidgetIds.size} instances)")
+        } catch (e: Exception) {
+            Log.w(TAG, "AirQualityWidget not found or update failed: ${e.message}")
+        }
+
         Log.d(TAG, "All widgets updated")
     }
 }

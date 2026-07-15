@@ -7,6 +7,8 @@
     <string name="wind_widget_label">Wind</string>
     <string name="self_protection_time_widget_description">Eigenschutzzeit basierend auf Hauttyp und aktuellem UV-Index</string>
     <string name="self_protection_time_widget_label">Eigenschutz</string>
+    <string name="air_quality_widget_description">Aktueller europäischer Luftqualitätsindex (EAQI)</string>
+    <string name="air_quality_widget_label">Luftqualität</string>
 
     <!-- Background location opt-in (Settings) -->
     <string name="settings_location_heading">Standort</string>
