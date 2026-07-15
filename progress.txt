@@ -1,3 +1,45 @@
+## Issue #27 — Notifications: Multiple fires
+
+### Status: COMPLETE
+
+### Root cause
+Reported symptom: two overlapping "high radiation" block notifications the same day, first
+"14:00-16:00" (2-4pm), then "15:00-17:00" (3-5pm). `NotificationDecider.worseNews()`
+(`NotificationDecider.kt`) re-fires the UV Warning same-day if any High UV Hour at/after `now`
+wasn't in the previously-warned `WarnedAbout.highHours` set. As the day progresses, the
+upstream forecast reclassifies the now-past hour 14 back below the High threshold (it drops
+out of `highHours`) while hour 16 newly crosses into High — the window didn't get longer, it
+just slid forward by one hour, but "hour 16 wasn't in the old set" was enough to count as
+Worse News and re-fire an effectively-duplicate notification.
+
+### What was implemented
+**`NotificationDecider.kt` (`worseNews`):** added a second condition alongside the existing
+"new high hour at/after now" check — the current `highHours` set must also be strictly larger
+than the previous one (`current.highHours.size > previous.highHours.size`). A pure same-length
+forward shift (one hour drops off the front, one appears on the back) no longer re-fires; a
+genuine extension (old hours retained, new ones added — window really got longer) still does,
+as does a higher peak or an earlier first-high-hour (unchanged, both already independent
+`worseNews` branches).
+
+**`CONTEXT.md` (Dedup Rules → Worse News):** updated the "new High UV Hour" bullet to spell
+out the size-growth requirement and cross-reference #27, so the doc matches the refined code.
+
+**`NotificationDeciderTest.kt`:** added 3 tests — `worseNews` false for a same-length forward
+shift, `worseNews` true when a shift also grows the window, and a `decide()`-level
+reproduction of the exact #27 scenario (14-15 → 15-16 at now=15) asserting no re-fire.
+
+### Notes / not done
+- Existing `worseNews`/`decide` tests for genuine extension, earlier start, higher peak, and
+  shrink were re-verified against the new size condition and still pass unchanged — the fix is
+  additive (narrows one branch), not a behavior rewrite.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 73 tests run, 73 passed (0 failures).
+- NotificationDeciderTest: 25/25 passed (22 pre-existing + 3 new)
+- All other suites unchanged and green.
+
+---
+
 ## Issue #23 — Simplify protection notice
 
 ### Status: COMPLETE

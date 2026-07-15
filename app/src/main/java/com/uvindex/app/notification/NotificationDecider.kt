@@ -132,7 +132,11 @@ object NotificationDecider {
         val newHoursAfterNow = current.highHours.any { h ->
             h >= now.hour && h !in previous.highHours
         }
-        if (newHoursAfterNow) return true
+        // A pure forward shift of the same-length window (an hour drops off the front as it
+        // becomes past, one appears on the back) reports a "new" trailing hour without the
+        // window actually having grown — that shape must not re-fire (see #27). Only treat a
+        // new trailing hour as Worse News when the window is genuinely longer than before.
+        if (newHoursAfterNow && current.highHours.size > previous.highHours.size) return true
         return false
     }
 

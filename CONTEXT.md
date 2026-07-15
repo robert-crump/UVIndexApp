@@ -23,7 +23,7 @@ Two user-facing channels.
 
 - **Worse News** — Predicate on a forecast update that justifies re-firing the UV Warning even though one already fired today. True if **any** of:
   - Peak UV today is higher than the peak we previously warned about.
-  - There is a High UV Hour after `now` that was not in what we previously warned about.
+  - There is a High UV Hour after `now` that was not in what we previously warned about, **and** the total number of High UV Hours today grew versus what we previously warned about. (A same-length window that merely slides forward — an hour drops off the front as it becomes past while one appears on the back — is not new information and must not re-fire; see #27.)
   - The first High UV Hour today is earlier than the one we previously warned about.
   A pure function over `WarnedAbout? × WarnedAbout → Boolean`. The decider's most testable surface.
 - **Warned About** — Snapshot of what a fired UV Warning covered. Used to compute Worse News on the next decision tick. Holds peak UV, first High UV Hour, and the set of High UV Hours.

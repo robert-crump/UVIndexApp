@@ -271,6 +271,22 @@ class NotificationDeciderTest {
         assertFalse(NotificationDecider.worseNews(prev, curr, nowAt(11)))
     }
 
+    @Test
+    fun `worseNews returns false when same-length window shifts forward one hour`() {
+        // #27: 14-15 (2-4pm) shifts to 15-16 (3-5pm) as hour 14 becomes past and drops out.
+        // Same length window, no genuine growth -> must not count as Worse News.
+        val prev = WarnedAbout(peak = 7.0f, firstHighHour = 14, highHours = setOf(14, 15))
+        val curr = WarnedAbout(peak = 7.0f, firstHighHour = 15, highHours = setOf(15, 16))
+        assertFalse(NotificationDecider.worseNews(prev, curr, nowAt(15)))
+    }
+
+    @Test
+    fun `worseNews returns true when window shifts forward and also grows`() {
+        val prev = WarnedAbout(peak = 7.0f, firstHighHour = 14, highHours = setOf(14, 15))
+        val curr = WarnedAbout(peak = 7.0f, firstHighHour = 15, highHours = setOf(15, 16, 17))
+        assertTrue(NotificationDecider.worseNews(prev, curr, nowAt(15)))
+    }
+
     // ── UV Warning re-fire (Worse News) decide() tests ─────────────────────────
 
     @Test
@@ -313,6 +329,19 @@ class NotificationDeciderTest {
         val history = historyForUvWarning(lastUvWarningOn = today, lastUvWarning = previousWarning)
         val result = NotificationDecider.decide(now, forecast, history)
         assertTrue("Expected no re-fire on shrunk window", result.none { it.channel == Channel.UvWarning })
+    }
+
+    @Test
+    fun `decide stays silent when sent today and window merely slid forward one hour`() {
+        // Reproduces #27: first fire covered 14-15 (2-4pm); by the time hour 14 is past,
+        // the forecast reclassifies it away while hour 16 newly crosses the threshold,
+        // reporting 15-16 (3-5pm). Same-length shift, not new information -> no re-fire.
+        val now = morningNow.withHour(15)
+        val forecast = forecastWithHoursAt(now.hour, mapOf(15 to 7.0, 16 to 7.0))
+        val previousWarning = WarnedAbout(peak = 7.0f, firstHighHour = 14, highHours = setOf(14, 15))
+        val history = historyForUvWarning(lastUvWarningOn = today, lastUvWarning = previousWarning)
+        val result = NotificationDecider.decide(now, forecast, history)
+        assertTrue("Expected no re-fire when window merely slid forward", result.none { it.channel == Channel.UvWarning })
     }
 
     @Test
