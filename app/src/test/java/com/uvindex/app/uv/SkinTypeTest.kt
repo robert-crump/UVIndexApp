@@ -20,9 +20,9 @@ class SkinTypeTest {
     }
 
     @Test
-    fun `protectionTimeCompact renders hours and minutes joined without spaces`() {
-        assertEquals("1h15m", protectionTimeCompact(75))
-        assertEquals("2h5m", protectionTimeCompact(125))
+    fun `protectionTimeCompact renders half-hour steps as a decimal hour value`() {
+        assertEquals("1.5h", protectionTimeCompact(90))
+        assertEquals("2.5h", protectionTimeCompact(150))
     }
 
     // ── protectionMinutes rounding/clamp feeding into the compact string ──────
@@ -39,5 +39,27 @@ class SkinTypeTest {
         // raw = 300 / (7.0 * 1.5) = 28.57 -> rounds to 30
         val minutes = SkinType.TYPE_III.protectionMinutes(uvIndex = 7.0)
         assertEquals(30, minutes)
+    }
+
+    @Test
+    fun `protectionMinutes rounds values from 55 to 60 up to a full hour`() {
+        // raw = 450 / (5.0 * 1.5) = 60.0 -> exactly 1h
+        assertEquals(60, SkinType.TYPE_IV.protectionMinutes(uvIndex = 5.0))
+        // raw = 300 / (3.4 * 1.5) = 58.8 -> falls in the 55-60 band
+        assertEquals(60, SkinType.TYPE_III.protectionMinutes(uvIndex = 3.4))
+    }
+
+    @Test
+    fun `protectionMinutes rounds to the nearest half hour above an hour`() {
+        // raw = 600 / (4.0 * 1.5) = 100.0 -> nearest 30 is 90
+        assertEquals(90, SkinType.TYPE_V.protectionMinutes(uvIndex = 4.0))
+        // raw = 1000 / (4.0 * 1.5) = 166.67 -> nearest 30 is 180
+        assertEquals(180, SkinType.TYPE_VI.protectionMinutes(uvIndex = 4.0))
+    }
+
+    @Test
+    fun `protectionMinutes feeds protectionTimeCompact as a decimal hour above an hour`() {
+        val minutes = SkinType.TYPE_V.protectionMinutes(uvIndex = 4.0)
+        assertEquals("1.5h", protectionTimeCompact(minutes))
     }
 }
