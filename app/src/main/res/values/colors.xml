@@ -15,17 +15,20 @@
     <color name="red_very_high_uv">#F32D1F</color>
     <color name="red_very_high_uv_background">#511D12</color>
 
-    <!-- Air Quality Colors (European AQI, 6 levels) -->
-    <color name="aqi_good">#3DDC84</color>
-    <color name="aqi_good_background">#123822</color>
-    <color name="aqi_fair">#FFD60A</color>
-    <color name="aqi_fair_background">#453800</color>
-    <color name="aqi_moderate">#FF9500</color>
-    <color name="aqi_moderate_background">#4A2C00</color>
-    <color name="aqi_poor">#FF3B30</color>
-    <color name="aqi_poor_background">#4D0F0C</color>
-    <color name="aqi_very_poor">#AF52DE</color>
-    <color name="aqi_very_poor_background">#34123F</color>
-    <color name="aqi_extremely_poor">#7B241C</color>
-    <color name="aqi_extremely_poor_background">#2A0D0A</color>
+    <!-- Air Quality Colors (European AQI, 6 levels).
+         Foreground values sampled directly from the EEA's official EAQI legend
+         (https://www.eea.europa.eu air-quality-index.png); backgrounds are darkened
+         tints of the same hues, matching the UV card's dark-container convention. -->
+    <color name="aqi_good">#50F0E6</color>
+    <color name="aqi_good_background">#144744</color>
+    <color name="aqi_fair">#50CCAA</color>
+    <color name="aqi_fair_background">#18473B</color>
+    <color name="aqi_moderate">#F0E641</color>
+    <color name="aqi_moderate_background">#474410</color>
+    <color name="aqi_poor">#FF5050</color>
+    <color name="aqi_poor_background">#471313</color>
+    <color name="aqi_very_poor">#960032</color>
+    <color name="aqi_very_poor_background">#470018</color>
+    <color name="aqi_extremely_poor">#7D2181</color>
+    <color name="aqi_extremely_poor_background">#450F47</color>
 </resources>

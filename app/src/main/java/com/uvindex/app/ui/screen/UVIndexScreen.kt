@@ -27,6 +27,7 @@ import com.uvindex.app.ui.theme.UVColorHelper
 import com.uvindex.app.ui.theme.AQIColorHelper
 import com.uvindex.app.ui.components.UVBarChart
 import com.uvindex.app.ui.components.TemperatureLineChart
+import com.uvindex.app.ui.components.AQIScaleBar
 import com.uvindex.app.uv.SkinType
 import com.uvindex.app.uv.protectionTimeParts
 import com.uvindex.app.wind.travelOctant
@@ -705,8 +706,12 @@ fun AirQualityCard(
         val backgroundColor = AQIColorHelper.getColor(aqi, context, AQIColorHelper.ColorType.BACKGROUND)
         val level = com.uvindex.app.data.model.getAirQualityLevel(aqi)
 
+        // State for dialog
+        var showDialog by remember { mutableStateOf(false) }
+
         Card(
-            modifier = modifier,
+            modifier = modifier
+                .clickable { showDialog = true },
             colors = CardDefaults.cardColors(containerColor = backgroundColor)
         ) {
             Box(
@@ -739,6 +744,14 @@ fun AirQualityCard(
                     )
                 }
             }
+        }
+
+        // Dialog with AQI scale
+        if (showDialog) {
+            AirQualityScaleDialog(
+                aqi = aqi,
+                onDismiss = { showDialog = false }
+            )
         }
     } else {
         Card(modifier = modifier) {
@@ -858,6 +871,52 @@ fun TemperatureChartDialog(forecast: UVForecast, onDismiss: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(300.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AirQualityScaleDialog(aqi: Double, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onDismiss() },
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Box {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Header with title and close button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Luftqualität (EAQI)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Schließen",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    AQIScaleBar(
+                        aqi = aqi,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
