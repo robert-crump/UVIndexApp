@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.uvindex.app.ui.theme.UVIndexTheme
+import com.uvindex.app.uv.UvProtectionRecommendations
 
 class InfoActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,7 +103,7 @@ fun InfoScreen(onBackClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Schutzempfehlung: Sonnenbrille, Sonnencreme",
+                text = "Schutzempfehlung: ${UvProtectionRecommendations.Moderate}",
                 style = MaterialTheme.typography.bodyMedium,
             )
 
@@ -115,7 +116,7 @@ fun InfoScreen(onBackClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Schutzempfehlung: Schatten, Sonnenbrille, Sonnencreme",
+                text = "Schutzempfehlung: ${UvProtectionRecommendations.High}",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }

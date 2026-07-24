@@ -11,3 +11,11 @@ fun classifyUvRisk(uvIndex: Double): UvRisk = when {
 
 fun UvRisk.isHigh(): Boolean = this >= UvRisk.High
 fun UvRisk.isVeryHigh(): Boolean = this == UvRisk.VeryHigh
+
+/** German category label shown to users (e.g. in the Daily Forecast Notification). */
+fun UvRisk.germanLabel(): String = when (this) {
+    UvRisk.None -> "niedrig"
+    UvRisk.Moderate -> "mittel"
+    UvRisk.High -> "hoch"
+    UvRisk.VeryHigh -> "sehr hoch"
+}

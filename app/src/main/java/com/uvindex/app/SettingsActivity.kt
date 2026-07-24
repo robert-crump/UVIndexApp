@@ -312,7 +312,7 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Tägliche Benachrichtigung um 06:30 mit Informationen zum Tageshöchstwert und den Zeiträumen mit (sehr) hoher UV-Strahlung",
+                        text = "Tägliche Benachrichtigung um 06:30 mit Tageshöchstwert und, je nach Kategorie, Schutzempfehlung oder Zeitraum zum Vermeiden direkter Sonne",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

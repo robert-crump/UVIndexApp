@@ -1,8 +1,10 @@
 package com.uvindex.app.notification
 
 import com.uvindex.app.data.model.UVForecast
+import com.uvindex.app.uv.UvProtectionRecommendations
 import com.uvindex.app.uv.UvRisk
 import com.uvindex.app.uv.classifyUvRisk
+import com.uvindex.app.uv.germanLabel
 import com.uvindex.app.uv.isHigh
 import com.uvindex.app.uv.isVeryHigh
 import java.time.LocalDateTime
@@ -155,7 +157,7 @@ object NotificationDecider {
     ): Pair<String, String> = when (phase) {
         Phase.Prelude -> {
             val nextHighHour = currentHour + 1
-            val body = "UV steigt ab ${"%02d".format(nextHighHour)}:00 Uhr auf hohe Werte " +
+            val body = "UV steigt ab $nextHighHour Uhr auf hohe Werte " +
                 "(${nextHourUV.toInt()}). Jetzt Sonnenschutz auftragen."
             "UV-Anstieg in Kürze" to body
         }
@@ -166,66 +168,45 @@ object NotificationDecider {
             val firstH = highHours.firstOrNull()?.hour ?: currentHour
             val lastH = highHours.lastOrNull()?.hour ?: currentHour
             val veryHigh = highHours.filter { classifyUvRisk(it.uvIndex).isVeryHigh() }
-            val sentence1 = "Hohe UV-Strahlung zwischen ${"%02d".format(firstH)}:00 " +
-                "und ${"%02d".format(lastH + 1)}:00 Uhr."
+            val sentence1 = "Hohe UV-Strahlung zwischen $firstH und ${lastH + 1} Uhr."
             val sentence2 = if (veryHigh.isNotEmpty()) {
                 val fvh = veryHigh.first().hour
                 val lvh = veryHigh.last().hour
-                " Sehr hohe Strahlung (8+) von ${"%02d".format(fvh)}:00 " +
-                    "bis ${"%02d".format(lvh + 1)}:00 Uhr."
+                " Sehr hohe Strahlung (8+) von $fvh bis ${lvh + 1} Uhr."
             } else ""
             "UV-Warnung" to (sentence1 + sentence2)
         }
     }
 
+    /**
+     * Builds the Daily Forecast Notification's title/body. See CONTEXT.md → "Daily Forecast
+     * Notification" and issue #28: title carries the location, body carries the daily max and
+     * category, with category-specific advice appended for Moderate and High-or-above days.
+     */
     private fun buildDailyContent(forecast: UVForecast): Pair<String, String> {
         val maxUV = forecast.dailyMax.toInt()
-        val category = when {
-            maxUV <= 2 -> "niedrig"
-            maxUV <= 5 -> "mittel"
-            maxUV <= 7 -> "hoch"
-            else -> "sehr hoch"
-        }
-        val description = buildHighUVDescription(forecast)
-        val body = if (description.isNotEmpty()) {
-            "Tagesmaximum: $maxUV ($category). $description"
+        val risk = classifyUvRisk(forecast.dailyMax)
+        val title = if (forecast.locationName != null) {
+            "Tagesprognose ${forecast.locationName}"
         } else {
-            "Tagesmaximum: $maxUV ($category)."
+            "Tagesprognose"
         }
-        return "UV: Tagesprognose" to body
+        val extra = when {
+            risk == UvRisk.Moderate -> " Schutzempfehlung: ${UvProtectionRecommendations.Moderate}."
+            risk.isHigh() -> sunAvoidanceSentence(forecast)
+            else -> ""
+        }
+        return title to "Max. $maxUV (${risk.germanLabel()}).$extra"
     }
 
     /**
-     * Describes the High UV Window(s) for today. See CONTEXT.md → "High UV Window".
+     * "Zwischen X-Y Uhr direkte Sonne vermeiden." where X is the first High UV Hour and Y is
+     * the last High UV Hour plus one. Empty if, unexpectedly, no hour actually reaches High.
      */
-    private fun buildHighUVDescription(forecast: UVForecast): String {
-        val veryHighHours = forecast.allDayForecasts.filter { classifyUvRisk(it.uvIndex).isVeryHigh() }.map { it.hour }
-        val highHours = forecast.allDayForecasts.filter { classifyUvRisk(it.uvIndex) == UvRisk.High }.map { it.hour }
-
-        val parts = buildList {
-            if (veryHighHours.isNotEmpty()) add("Sehr hohe Strahlung ${formatRanges(veryHighHours)}")
-            if (highHours.isNotEmpty()) add("Hohe Strahlung ${formatRanges(highHours)}")
-        }
-        return if (parts.isEmpty()) "" else parts.joinToString(". ") + "."
+    private fun sunAvoidanceSentence(forecast: UVForecast): String {
+        val highHours = forecast.allDayForecasts.filter { classifyUvRisk(it.uvIndex).isHigh() }
+        val firstH = highHours.minOfOrNull { it.hour } ?: return ""
+        val lastH = highHours.maxOf { it.hour }
+        return " Zwischen $firstH-${lastH + 1} Uhr direkte Sonne vermeiden."
     }
-
-    private fun formatRanges(hours: List<Int>): String {
-        val sorted = hours.sorted()
-        val ranges = mutableListOf<String>()
-        var start = sorted[0]
-        var end = sorted[0]
-        for (i in 1 until sorted.size) {
-            if (sorted[i] == end + 1) end = sorted[i]
-            else {
-                ranges.add(formatRange(start, end))
-                start = sorted[i]; end = sorted[i]
-            }
-        }
-        ranges.add(formatRange(start, end))
-        return "von " + ranges.joinToString(" und ")
-    }
-
-    private fun formatRange(start: Int, end: Int): String =
-        if (start == end) "${"%02d".format(start)}:00 Uhr"
-        else "${"%02d".format(start)}:00-${"%02d".format(end + 1)}:00 Uhr"
 }

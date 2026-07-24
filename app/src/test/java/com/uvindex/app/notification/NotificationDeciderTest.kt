@@ -151,6 +151,83 @@ class NotificationDeciderTest {
         assertTrue("Expected no decisions outside morning window", result.isEmpty())
     }
 
+    /** Forecast for Daily-content tests: dailyMax + allDayForecasts control the category/window math. */
+    private fun dailyForecast(
+        dailyMax: Double,
+        locationName: String? = "Aachen",
+        allDayForecasts: List<HourlyForecast> = listOf(HourlyForecast("2026-05-20T12:00", 12, dailyMax, 22.0)),
+    ): UVForecast {
+        val hour = allDayForecasts.first()
+        return UVForecast(
+            currentHour = hour,
+            nextHours = emptyList(),
+            dailyMax = dailyMax,
+            dailyMaxRemaining = dailyMax,
+            clearSkyMax = dailyMax,
+            clearSkyHourly = emptyList(),
+            maxHourToday = hour.hour,
+            highUVTimeSlots = emptyList(),
+            locationName = locationName,
+            allDayForecasts = allDayForecasts,
+            airQuality = null,
+            lastUpdateTime = null,
+            countryCode = null,
+        )
+    }
+
+    // ── Daily channel content tests (#28) ──────────────────────────────────
+
+    @Test
+    fun `Daily title includes location name`() {
+        val history = historyWith(lastDailySent = today.minusDays(1))
+        val result = NotificationDecider.decide(morningNow, dailyForecast(dailyMax = 2.0), history)
+        assertEquals("Tagesprognose Aachen", result[0].title)
+    }
+
+    @Test
+    fun `Daily title falls back to generic when locationName is null`() {
+        val history = historyWith(lastDailySent = today.minusDays(1))
+        val forecast = dailyForecast(dailyMax = 2.0, locationName = null)
+        val result = NotificationDecider.decide(morningNow, forecast, history)
+        assertEquals("Tagesprognose", result[0].title)
+    }
+
+    @Test
+    fun `Daily content for niedrig category has no appended text`() {
+        val history = historyWith(lastDailySent = today.minusDays(1))
+        val result = NotificationDecider.decide(morningNow, dailyForecast(dailyMax = 2.0), history)
+        assertEquals("Max. 2 (niedrig).", result[0].body)
+    }
+
+    @Test
+    fun `Daily content for mittel category appends Schutzempfehlung`() {
+        val history = historyWith(lastDailySent = today.minusDays(1))
+        val result = NotificationDecider.decide(morningNow, dailyForecast(dailyMax = 4.0), history)
+        assertEquals("Max. 4 (mittel). Schutzempfehlung: Sonnenbrille, Sonnencreme.", result[0].body)
+    }
+
+    @Test
+    fun `Daily content for hoch category appends sun-avoidance window`() {
+        val history = historyWith(lastDailySent = today.minusDays(1))
+        val forecast = dailyForecast(
+            dailyMax = 7.0,
+            allDayForecasts = listOf(
+                HourlyForecast("2026-05-20T12:00", 12, 6.0, 22.0),
+                HourlyForecast("2026-05-20T13:00", 13, 7.0, 22.0),
+                HourlyForecast("2026-05-20T14:00", 14, 6.0, 22.0),
+            ),
+        )
+        val result = NotificationDecider.decide(morningNow, forecast, history)
+        assertEquals("Max. 7 (hoch). Zwischen 12-15 Uhr direkte Sonne vermeiden.", result[0].body)
+    }
+
+    @Test
+    fun `Daily content for sehr hoch category also appends sun-avoidance window`() {
+        val history = historyWith(lastDailySent = today.minusDays(1))
+        val result = NotificationDecider.decide(morningNow, dailyForecast(dailyMax = 9.0), history)
+        assertEquals("Max. 9 (sehr hoch). Zwischen 12-13 Uhr direkte Sonne vermeiden.", result[0].body)
+    }
+
     // ── UV Warning channel decide() tests ────────────────────────────────────
 
     @Test
@@ -171,6 +248,26 @@ class NotificationDeciderTest {
         val uvDecision = result.find { it.channel == Channel.UvWarning }
         assertNotNull("Expected UV Warning decision for InWindow", uvDecision)
         assertEquals(Phase.InWindow, uvDecision!!.phase)
+    }
+
+    @Test
+    fun `UV Warning Prelude body uses bare hour formatting, no leading zeros or minutes`() {
+        val now = morningNow.withHour(10)
+        val forecast = forecastWithUV(atHour = 10, currentUV = 3.0, nextHourUV = 7.0)
+        val result = NotificationDecider.decide(now, forecast, historyForUvWarning())
+        val body = result.find { it.channel == Channel.UvWarning }!!.body
+        assertTrue("Expected bare hour 'ab 11 Uhr', got: $body", body.contains("ab 11 Uhr"))
+        assertFalse("Expected no ':00' minutes in body: $body", body.contains(":00"))
+    }
+
+    @Test
+    fun `UV Warning InWindow body uses bare hour formatting, no leading zeros or minutes`() {
+        val now = morningNow.withHour(11)
+        val forecast = forecastWithHoursAt(now.hour, mapOf(11 to 7.0, 12 to 9.0))
+        val result = NotificationDecider.decide(now, forecast, historyForUvWarning())
+        val body = result.find { it.channel == Channel.UvWarning }!!.body
+        assertTrue("Expected bare hours 'zwischen 11 und 13 Uhr', got: $body", body.contains("zwischen 11 und 13 Uhr"))
+        assertFalse("Expected no ':00' minutes in body: $body", body.contains(":00"))
     }
 
     @Test

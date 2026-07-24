@@ -4,7 +4,7 @@ The vocabulary the codebase should use for UV forecasts and notifications. Updat
 
 ## Forecast Domain
 
-- **UV Forecast** — Hourly UV index values for today (and ahead), produced by Open-Meteo. **The forecast can change during the day** as the upstream model updates. Code that decides "is the user informed?" must treat the forecast as mutable, not a one-shot morning truth.
+- **UV Forecast** — Hourly UV index values for today (and ahead), produced by Open-Meteo. **The forecast can change during the day** as the upstream model updates. Code that decides "is the user informed?" must treat the forecast as mutable, not a one-shot morning truth. UV index, wind speed, air quality, and clear-sky values are rounded to whole numbers once, at parse time in `WeatherRepository.parseWeatherResponse` — all downstream classification (`classifyUvRisk`), notification logic, and display code operates on already-rounded values, not raw API floats.
 - **High UV** — UV index ≥ 6. The threshold at which sunscreen is recommended. The single source of this threshold is `classifyUvRisk` in `com.uvindex.app.uv.UvRisk`.
 - **Very High UV** — UV index ≥ 8. Used as emphasis inside notification bodies; not its own channel. Threshold owned by `classifyUvRisk` in `com.uvindex.app.uv.UvRisk`.
 - **High UV Hour** — A forecast hour whose UV value is High UV.
@@ -14,7 +14,7 @@ The vocabulary the codebase should use for UV forecasts and notifications. Updat
 
 Two user-facing channels.
 
-- **Daily Forecast Notification** — Morning briefing fired once around 6:30 AM. Summarizes today's UV maximum and lists today's High UV Windows. Notification ID 1. Does **not** re-fire later in the day even if the forecast changes — the UV Warning channel handles updates.
+- **Daily Forecast Notification** — Morning briefing fired once around 6:30 AM. Title carries the location name ("Tagesprognose Aachen", or plain "Tagesprognose" if the location name is unavailable). Body states today's UV maximum and its category (niedrig/mittel/hoch/sehr hoch), with category-specific advice appended: Moderate gets the shared Schutzempfehlung text (`com.uvindex.app.uv.UvProtectionRecommendations`), High-or-above gets the window to avoid direct sun (first-to-last+1 High UV Hour). Notification ID 1. Does **not** re-fire later in the day even if the forecast changes — the UV Warning channel handles updates. See #28.
 - **UV Warning** — Responsive notification about today's High UV. Notification ID 2. Fires at most once per calendar day, **unless the forecast brings Worse News**, in which case it re-fires. Has two phases:
   - **Prelude phase** — Fires before the user is in High UV: the current hour is below the threshold, but a near-future hour is at or above it. Wording: "act now before it starts."
   - **In-window phase** — Fires once UV is already High. Wording: "you're in it, here's what's left of the window." Used when Prelude was missed (worker wasn't running, user just installed, etc.).

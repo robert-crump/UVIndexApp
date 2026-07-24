@@ -108,7 +108,7 @@ class WeatherRepository(context: Context) {
                 longitude = longitude
             )
             Log.d(TAG, "AQI fetched: ${aqiResponse.current.europeanAqi}")
-            aqiResponse.current.europeanAqi
+            aqiResponse.current.europeanAqi.roundToInt().toDouble()
         } catch (e: Exception) {
             Log.w(TAG, "AQI fetch failed: ${e.message}")
             null
@@ -431,7 +431,7 @@ class WeatherRepository(context: Context) {
                 val estimatedClearSky = clearSkyBase * seasonalModifier
                 val forecastedUV = todayForecasts.find { it.hour == hour }?.uvIndex ?: 0.0
 
-                maxOf(estimatedClearSky, forecastedUV * 1.3).coerceIn(0.0, 16.0)
+                maxOf(estimatedClearSky, forecastedUV * 1.3).coerceIn(0.0, 16.0).roundToInt().toDouble()
             }
         }
     }
