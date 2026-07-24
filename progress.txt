@@ -1,3 +1,90 @@
+## Issue #28 — Benachrichtigung: Tagesprognose
+
+### Status: COMPLETE
+
+### What was implemented
+Reworked the existing Daily Forecast Notification's content (`NotificationDecider.
+buildDailyContent`, channel ID 1, same 6:30 AM trigger and `dailyEnabled` toggle —
+no new channel) to match the issue's spec, rather than adding a second notification.
+
+**`NotificationDecider.kt`:**
+- Title: `"Tagesprognose $locationName"`, falling back to plain `"Tagesprognose"` when
+  `UVForecast.locationName` is null (geocoding can fail).
+- Body: `"Max. X (Kategorie)."` where Kategorie is one of 4 distinct labels — niedrig/
+  mittel/hoch/sehr hoch — derived from `classifyUvRisk(dailyMax).germanLabel()`
+  (new extension in `UvRisk.kt`), replacing the old hand-rolled duplicate threshold
+  logic that didn't call `classifyUvRisk` at all.
+- Niedrig: nothing appended. Mittel: appends the shared Schutzempfehlung text (new
+  `UvProtectionRecommendations` object, `uv` package — plain Kotlin, no Android
+  dependency, so `NotificationDecider` stays pure/unit-testable). Hoch or sehr hoch
+  (both `isHigh()`): appends `"Zwischen X-Y Uhr direkte Sonne vermeiden."` where X/Y
+  are the first/last High UV Hour (+1) in `allDayForecasts` — per user's explicit
+  deviation from the issue's literal "X und Y" wording to a hyphenated "X-Y" form.
+- Removed `buildHighUVDescription`/`formatRanges`/`formatRange` — dead code once
+  `buildDailyContent` stopped using them.
+- Consistency cleanup (per user request during grilling): every hour mention in this
+  file (UV Warning's Prelude/InWindow bodies too) dropped `:00` minutes/leading
+  zeros — bare hour numbers throughout, not just in the new Daily content.
+
+**`UvRisk.kt`:** added `UvRisk.germanLabel()` (niedrig/mittel/hoch/sehr hoch),
+single source of truth for the category label, used by the notification.
+
+**New `uv/UvProtectionRecommendations.kt`:** `Moderate`/`High` string constants,
+now the single source for "Schutzempfehlung: ..." text — `InfoActivity.kt`'s two
+existing hardcoded copies (3-5/Mittel and 6+/Hoch-bis-sehr-hoch) were replaced with
+references to these constants so the Info screen and notification can't drift apart.
+
+**`WeatherRepository.kt` (user decision, expanded scope beyond the issue text):**
+UV index/temperature/wind speed were already rounded at parse time; extended the
+same treatment to **air quality** (`aqiResponse.current.europeanAqi.roundToInt()
+.toDouble()`) and **clear-sky values** (`calculateClearSkyHourly`'s per-hour
+result). Rounding happens once, at the API-parse boundary — `dailyMax`/
+`dailyMaxRemaining`/`clearSkyMax` are all derived downstream from already-rounded
+hourly values, so no separate rounding needed there. Deliberate tradeoff accepted
+by the user: classification boundaries (`classifyUvRisk`, the UV Warning's
+`isHigh()` gate, this issue's own sun-avoidance window) now operate on rounded
+rather than raw-float UV values — e.g. a raw 5.6 now classifies as High (6) where
+it previously classified as Moderate. Display-site `.toInt()` calls elsewhere in
+the app (UI, widgets, charts) needed no changes since their inputs are now already
+whole numbers.
+
+**`SettingsActivity.kt`:** updated the "Tagesbenachrichtigung" toggle's description
+text to describe the new content shape (was describing the old "Zeiträumen mit
+(sehr) hoher UV-Strahlung" wording).
+
+**`CONTEXT.md`:** updated the "Daily Forecast Notification" entry and added a note
+under "UV Forecast" documenting the round-once-at-parse-time invariant.
+
+**`NotificationDeciderTest.kt`:** added 8 tests — 6 for the new Daily content
+(location in title, null-location fallback, niedrig/mittel/hoch/sehr-hoch body
+text) and 2 asserting the UV Warning bodies now use bare-hour formatting with no
+":00".
+
+### Notes / not done
+- Pre-implementation: used `/grill-me` to resolve the design before writing code —
+  rework vs. new notification, category-label source (`classifyUvRisk` vs. ad hoc),
+  4-tier vs. collapsed labels (the issue's own example "(hoch)" for UV=7 settled
+  this in favor of 4 distinct labels), rounding scope and where it happens (at
+  ingestion vs. display-only — user chose ingestion, accepting the classification
+  shift), locationName null fallback, exact Mittel/Hoch wording, and the shared
+  Schutzempfehlung constant's home (plain Kotlin vs. `strings.xml`, chosen to keep
+  `NotificationDecider` Android-free).
+- The user's rounding request was scoped down from "the entire app" (21 `.toInt()`
+  call sites touching color-bucketing, temperature, wind speed, AQI, and chart
+  binning) to just UV/wind/AQI/clear-sky values rounded once at ingestion —
+  color-threshold bucketing, temperature, and chart data-point binning were left
+  untouched as out of scope for this issue.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 84 tests run, 84 passed (0 failures).
+- NotificationDeciderTest: 33/33 passed (25 pre-existing + 8 new)
+- All other suites unchanged and green (BackgroundLocationPermissionTest 5,
+  NotificationDispatcherTest 3, NotificationHistoryStoreTest 15, SkinTypeTest 8,
+  UvRiskTest 9, WindDirectionTest 11).
+`:app:assembleDebug` — BUILD SUCCESSFUL.
+
+---
+
 ## Issue #26 — Widget: Air quality index
 
 ### Status: COMPLETE
