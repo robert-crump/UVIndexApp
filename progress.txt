@@ -483,4 +483,31 @@ Slice 2 (#20) builds the 1x1 WindWidget on top of it.
 - UvRiskTest: 9/9 passed (unchanged)
 - NotificationDispatcherTest: 3/3 passed (unchanged)
 
+## 2026-07-25 — Daily Forecast Notification: missing Schutzempfehlung on High days
+
+### Status: COMPLETE
+
+### What happened
+User reported no "Schutzempfehlung" in the Daily Forecast Notification on a UV-7
+(hoch) day. Investigation found this was working as designed from #28: the High/
+Very High branch of `NotificationDecider.buildDailyContent` only appended the
+sun-avoidance window sentence, never a Schutzempfehlung sentence — even though
+`UvProtectionRecommendations.High` (`"Schatten, Sonnenbrille, Sonnencreme"`) had
+already been added in #28 for exactly this purpose and was sitting unused.
+
+User decided (not a revert to #28's intent, a new explicit choice): High/Very High
+days should get **both** sentences, window first.
+
+### What was implemented
+**`NotificationDecider.kt` (`buildDailyContent`):** High/Very High `extra` is now
+`sunAvoidanceSentence(forecast) + " Schutzempfehlung: ${UvProtectionRecommendations.High}."`
+— e.g. `"Max. 7 (hoch). Zwischen 12-15 Uhr direkte Sonne vermeiden. Schutzempfehlung:
+Schatten, Sonnenbrille, Sonnencreme."`. Moderate's format is unchanged.
+
+**`NotificationDeciderTest.kt`:** updated the hoch/sehr-hoch daily-content assertions
+to expect both sentences.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL, green.
+
 ---

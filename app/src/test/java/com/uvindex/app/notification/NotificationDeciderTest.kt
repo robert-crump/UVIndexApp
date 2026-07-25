@@ -207,7 +207,7 @@ class NotificationDeciderTest {
     }
 
     @Test
-    fun `Daily content for hoch category appends sun-avoidance window`() {
+    fun `Daily content for hoch category appends sun-avoidance window and Schutzempfehlung`() {
         val history = historyWith(lastDailySent = today.minusDays(1))
         val forecast = dailyForecast(
             dailyMax = 7.0,
@@ -218,14 +218,22 @@ class NotificationDeciderTest {
             ),
         )
         val result = NotificationDecider.decide(morningNow, forecast, history)
-        assertEquals("Max. 7 (hoch). Zwischen 12-15 Uhr direkte Sonne vermeiden.", result[0].body)
+        assertEquals(
+            "Max. 7 (hoch). Zwischen 12-15 Uhr direkte Sonne vermeiden." +
+                " Schutzempfehlung: Schatten, Sonnenbrille, Sonnencreme.",
+            result[0].body,
+        )
     }
 
     @Test
-    fun `Daily content for sehr hoch category also appends sun-avoidance window`() {
+    fun `Daily content for sehr hoch category also appends sun-avoidance window and Schutzempfehlung`() {
         val history = historyWith(lastDailySent = today.minusDays(1))
         val result = NotificationDecider.decide(morningNow, dailyForecast(dailyMax = 9.0), history)
-        assertEquals("Max. 9 (sehr hoch). Zwischen 12-13 Uhr direkte Sonne vermeiden.", result[0].body)
+        assertEquals(
+            "Max. 9 (sehr hoch). Zwischen 12-13 Uhr direkte Sonne vermeiden." +
+                " Schutzempfehlung: Schatten, Sonnenbrille, Sonnencreme.",
+            result[0].body,
+        )
     }
 
     // ── UV Warning channel decide() tests ────────────────────────────────────

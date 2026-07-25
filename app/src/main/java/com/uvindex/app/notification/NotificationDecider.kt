@@ -181,7 +181,8 @@ object NotificationDecider {
     /**
      * Builds the Daily Forecast Notification's title/body. See CONTEXT.md → "Daily Forecast
      * Notification" and issue #28: title carries the location, body carries the daily max and
-     * category, with category-specific advice appended for Moderate and High-or-above days.
+     * category. Moderate days get a Schutzempfehlung sentence; High-or-above days get both the
+     * sun-avoidance window and a Schutzempfehlung sentence (using the High-tier recommendation).
      */
     private fun buildDailyContent(forecast: UVForecast): Pair<String, String> {
         val maxUV = forecast.dailyMax.toInt()
@@ -193,7 +194,7 @@ object NotificationDecider {
         }
         val extra = when {
             risk == UvRisk.Moderate -> " Schutzempfehlung: ${UvProtectionRecommendations.Moderate}."
-            risk.isHigh() -> sunAvoidanceSentence(forecast)
+            risk.isHigh() -> sunAvoidanceSentence(forecast) + " Schutzempfehlung: ${UvProtectionRecommendations.High}."
             else -> ""
         }
         return title to "Max. $maxUV (${risk.germanLabel()}).$extra"
