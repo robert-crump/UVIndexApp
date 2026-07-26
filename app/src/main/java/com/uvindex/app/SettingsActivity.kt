@@ -244,8 +244,7 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                         onExpandedChange = { skinTypeDropdownExpanded = it }
                     ) {
                         OutlinedTextField(
-                            value = currentSkinType?.let { "${it.label} – ${it.description}" }
-                                ?: "Nicht ausgewählt",
+                            value = currentSkinType?.label ?: "Nicht ausgewählt",
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Hauttyp") },
