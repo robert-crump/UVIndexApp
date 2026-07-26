@@ -342,7 +342,7 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = "Warnung vor hoher Strahlung",
+                        text = "Stündliche Benachrichtigung vor hoher UV-Strahlung",
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Spacer(modifier = Modifier.height(4.dp))
