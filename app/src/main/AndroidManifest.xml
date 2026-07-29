@@ -54,17 +54,17 @@
                 android:resource="@xml/uv_widget_info" />
         </receiver>
 
-        <!-- Max UV Widget -->
+        <!-- Current UV Widget -->
         <receiver
-            android:name=".widget.UVWidgetMax"
+            android:name=".widget.UVWidgetCurrent"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.uvindex.app.widget.ACTION_REFRESH_MAX" />
+                <action android:name="com.uvindex.app.widget.ACTION_REFRESH_CURRENT" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/uv_widget_max_info" />
+                android:resource="@xml/uv_widget_current_info" />
         </receiver>
 
         <!-- Wind Widget (1x1) -->

@@ -7,7 +7,7 @@ import android.content.Intent
 import com.uvindex.app.widget.AirQualityWidget
 import com.uvindex.app.widget.SelfProtectionTimeWidget
 import com.uvindex.app.widget.UVWidget
-import com.uvindex.app.widget.UVWidgetMax
+import com.uvindex.app.widget.UVWidgetCurrent
 import com.uvindex.app.widget.WindWidget
 
 /**
@@ -27,8 +27,8 @@ object WidgetUpdateHelper {
         // Update UV Widget (4x1)
         updateWidget(context, appWidgetManager, UVWidget::class.java)
         
-        // Update Max UV Widget (1x1)
-        updateWidget(context, appWidgetManager, UVWidgetMax::class.java)
+        // Update Current UV Widget (1x1)
+        updateWidget(context, appWidgetManager, UVWidgetCurrent::class.java)
 
         // Update Wind Widget (1x1)
         updateWidget(context, appWidgetManager, WindWidget::class.java)

@@ -1,7 +1,6 @@
 package com.uvindex.app.ui.theme
 
 import android.content.Context
-import android.graphics.Color.rgb
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import com.uvindex.app.R
@@ -66,19 +65,5 @@ object UVColorHelper {
             uv <= 7 -> "Hoch"
             else -> "Sehr hoch"
         }
-    }
-
-    /**
-     * Returns the Android Color Int for widget RemoteViews (no Context required).
-     * Uses hardcoded RGB values suitable for dark widget backgrounds.
-     *
-     * @param uvIndex UV index value (as Int)
-     * @return android.graphics.Color Int
-     */
-    fun getWidgetUVColor(uvIndex: Int): Int = when {
-        uvIndex <= 2 -> rgb(108, 213, 139)
-        uvIndex <= 5 -> rgb(252, 201, 53)
-        uvIndex <= 7 -> rgb(250, 144, 62)
-        else -> rgb(238, 103, 92)
     }
 }

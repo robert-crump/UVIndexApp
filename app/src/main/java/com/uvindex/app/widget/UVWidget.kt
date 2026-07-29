@@ -10,6 +10,7 @@ import android.graphics.Color.parseColor
 import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
 import com.uvindex.app.R
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.ui.theme.UVColorHelper
@@ -22,8 +23,22 @@ import kotlinx.coroutines.withContext
 class UVWidget : AppWidgetProvider() {
 
     companion object {
+        // Kept for the ACTION_REFRESH broadcast/pending intent wiring below, which is no
+        // longer exposed via a visible button in uv_widget.xml (widget_refresh_button is
+        // present but zero-size) but still works if triggered programmatically.
         const val ACTION_REFRESH = "com.uvindex.app.widget.ACTION_REFRESH"
         private const val TAG = "UVWidget"
+
+        private fun endBackgroundRes(uvIndex: Int, isLeftEnd: Boolean): Int = when {
+            uvIndex <= 2 -> if (isLeftEnd) R.drawable.widget_row_bg_low_left else R.drawable.widget_row_bg_low_right
+            uvIndex <= 5 -> if (isLeftEnd) R.drawable.widget_row_bg_moderate_left else R.drawable.widget_row_bg_moderate_right
+            uvIndex <= 7 -> if (isLeftEnd) R.drawable.widget_row_bg_high_left else R.drawable.widget_row_bg_high_right
+            else -> if (isLeftEnd) R.drawable.widget_row_bg_very_high_left else R.drawable.widget_row_bg_very_high_right
+        }
+
+        private val CONTAINER_IDS = intArrayOf(R.id.widget_cell_0, R.id.widget_cell_1, R.id.widget_cell_2, R.id.widget_cell_3)
+        private val UV_TEXT_IDS = intArrayOf(R.id.widget_uv_hour_0, R.id.widget_uv_hour_1, R.id.widget_uv_hour_2, R.id.widget_uv_hour_3)
+        private val TIME_TEXT_IDS = intArrayOf(R.id.widget_time_hour_0, R.id.widget_time_hour_1, R.id.widget_time_hour_2, R.id.widget_time_hour_3)
     }
 
     override fun onUpdate(
@@ -143,13 +158,6 @@ class UVWidget : AppWidgetProvider() {
 
                 result.fold(
                     onSuccess = { forecast ->
-                        val locationText = if (!forecast.locationName.isNullOrEmpty()) {
-                            "${forecast.locationName}"
-                        } else {
-                            "UV-Index"
-                        }
-                        views.setTextViewText(R.id.widget_location, locationText)
-
                         val currentIndex = forecast.allDayForecasts.indexOfFirst {
                             it.hour == forecast.currentHour.hour
                         }
@@ -167,46 +175,46 @@ class UVWidget : AppWidgetProvider() {
                         displayHours.forEachIndexed { index, hourForecast ->
                             if (index > 3) return@forEachIndexed
 
-                            val uvId = when (index) {
-                                0 -> R.id.widget_uv_hour_0
-                                1 -> R.id.widget_uv_hour_1
-                                2 -> R.id.widget_uv_hour_2
-                                3 -> R.id.widget_uv_hour_3
-                                else -> return@forEachIndexed
-                            }
-                            val timeId = when (index) {
-                                0 -> R.id.widget_time_hour_0
-                                1 -> R.id.widget_time_hour_1
-                                2 -> R.id.widget_time_hour_2
-                                3 -> R.id.widget_time_hour_3
-                                else -> return@forEachIndexed
-                            }
+                            val containerId = CONTAINER_IDS[index]
+                            val uvId = UV_TEXT_IDS[index]
+                            val timeId = TIME_TEXT_IDS[index]
 
                             val uv = hourForecast.uvIndex.toInt()
+                            val fgColor = UVColorHelper.getColorInt(uv.toDouble(), context, UVColorHelper.ColorType.FOREGROUND)
+
                             views.setTextViewText(uvId, uv.toString())
-                            views.setTextColor(uvId, UVColorHelper.getWidgetUVColor(uv))
+                            views.setTextColor(uvId, fgColor)
                             views.setTextViewText(timeId, String.format("%02d:00", hourForecast.hour))
+                            views.setTextColor(timeId, fgColor)
+
+                            when (index) {
+                                0 -> views.setInt(containerId, "setBackgroundResource", endBackgroundRes(uv, isLeftEnd = true))
+                                3 -> views.setInt(containerId, "setBackgroundResource", endBackgroundRes(uv, isLeftEnd = false))
+                                else -> views.setInt(
+                                    containerId, "setBackgroundColor",
+                                    UVColorHelper.getColorInt(uv.toDouble(), context, UVColorHelper.ColorType.BACKGROUND)
+                                )
+                            }
                         }
 
                         for (i in displayHours.size until 4) {
-                            val uvId = when (i) {
-                                0 -> R.id.widget_uv_hour_0
-                                1 -> R.id.widget_uv_hour_1
-                                2 -> R.id.widget_uv_hour_2
-                                3 -> R.id.widget_uv_hour_3
-                                else -> continue
-                            }
-                            val timeId = when (i) {
-                                0 -> R.id.widget_time_hour_0
-                                1 -> R.id.widget_time_hour_1
-                                2 -> R.id.widget_time_hour_2
-                                3 -> R.id.widget_time_hour_3
-                                else -> continue
-                            }
+                            val containerId = CONTAINER_IDS[i]
+                            val uvId = UV_TEXT_IDS[i]
+                            val timeId = TIME_TEXT_IDS[i]
 
                             views.setTextViewText(uvId, "-")
-                            views.setTextColor(uvId, parseColor("#666666"))
+                            views.setTextColor(uvId, parseColor("#999999"))
                             views.setTextViewText(timeId, "--:--")
+                            views.setTextColor(timeId, parseColor("#999999"))
+
+                            when (i) {
+                                0 -> views.setInt(containerId, "setBackgroundResource", R.drawable.widget_row_bg_error_left)
+                                3 -> views.setInt(containerId, "setBackgroundResource", R.drawable.widget_row_bg_error_right)
+                                else -> views.setInt(
+                                    containerId, "setBackgroundColor",
+                                    ContextCompat.getColor(context, R.color.widget_uv_error_background)
+                                )
+                            }
                         }
 
                         views.setViewVisibility(R.id.widget_refresh_button, View.VISIBLE)

@@ -7,68 +7,48 @@
         android:id="@+id/widget_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="8dp"
-        android:background="@drawable/widget_background">
+        android:orientation="vertical">
 
-        <!-- Header Row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/widget_location"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Standort"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="#333333"
-                android:ellipsize="end"
-                android:maxLines="1" />
-
-            <!-- FrameLayout für Refresh-Button und Loading-Indikator -->
-            <FrameLayout
-                android:layout_width="24dp"
-                android:layout_height="24dp">
-
-                <ImageButton
-                    android:id="@+id/widget_refresh_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:src="@drawable/ic_refresh"
-                    android:background="@android:color/transparent"
-                    android:contentDescription="Aktualisieren"
-                    android:scaleType="centerInside" />
-
-                <ProgressBar
-                    android:id="@+id/widget_loading_indicator"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:visibility="gone"
-                    android:indeterminate="true" />
-            </FrameLayout>
-        </LinearLayout>
-
-        <!-- UV Index Row -->
-        <LinearLayout
-            android:layout_width="match_parent"
+        <!-- Refresh button + loading indicator are kept only so the existing
+             ACTION_REFRESH broadcast/pending intent keep working programmatically;
+             not shown in the UI anymore, hence zero size. -->
+        <FrameLayout
+            android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="4dp">
+            android:visibility="gone">
 
-            <!-- Current Hour -->
+            <ImageButton
+                android:id="@+id/widget_refresh_button"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_refresh"
+                android:background="@android:color/transparent"
+                android:contentDescription="Aktualisieren"
+                android:scaleType="centerInside" />
+
+            <ProgressBar
+                android:id="@+id/widget_loading_indicator"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"
+                android:indeterminate="true" />
+        </FrameLayout>
+
+        <!-- UV Index Row: one continuous bar, no gaps between cells -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <!-- Current Hour (left end, rounded left corners) -->
             <LinearLayout
+                android:id="@+id/widget_cell_0"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:gravity="center">
+                android:gravity="center"
+                android:background="@drawable/widget_row_bg_error_left">
 
                 <TextView
                     android:id="@+id/widget_uv_hour_0"
@@ -85,16 +65,18 @@
                     android:layout_height="wrap_content"
                     android:text="--:--"
                     android:textSize="10sp"
-                    android:textColor="#666666" />
+                    android:textColor="#999999" />
             </LinearLayout>
 
-            <!-- Hour +1 -->
+            <!-- Hour +1 (middle, square corners) -->
             <LinearLayout
+                android:id="@+id/widget_cell_1"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:gravity="center">
+                android:gravity="center"
+                android:background="@color/widget_uv_error_background">
 
                 <TextView
                     android:id="@+id/widget_uv_hour_1"
@@ -102,7 +84,8 @@
                     android:layout_height="wrap_content"
                     android:text="-"
                     android:textSize="28sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:textColor="#999999" />
 
                 <TextView
                     android:id="@+id/widget_time_hour_1"
@@ -110,16 +93,18 @@
                     android:layout_height="wrap_content"
                     android:text="--:--"
                     android:textSize="10sp"
-                    android:textColor="#666666" />
+                    android:textColor="#999999" />
             </LinearLayout>
 
-            <!-- Hour +2 -->
+            <!-- Hour +2 (middle, square corners) -->
             <LinearLayout
+                android:id="@+id/widget_cell_2"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:gravity="center">
+                android:gravity="center"
+                android:background="@color/widget_uv_error_background">
 
                 <TextView
                     android:id="@+id/widget_uv_hour_2"
@@ -127,7 +112,8 @@
                     android:layout_height="wrap_content"
                     android:text="-"
                     android:textSize="28sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:textColor="#999999" />
 
                 <TextView
                     android:id="@+id/widget_time_hour_2"
@@ -135,16 +121,18 @@
                     android:layout_height="wrap_content"
                     android:text="--:--"
                     android:textSize="10sp"
-                    android:textColor="#666666" />
+                    android:textColor="#999999" />
             </LinearLayout>
 
-            <!-- Hour +3 -->
+            <!-- Hour +3 (right end, rounded right corners) -->
             <LinearLayout
+                android:id="@+id/widget_cell_3"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:gravity="center">
+                android:gravity="center"
+                android:background="@drawable/widget_row_bg_error_right">
 
                 <TextView
                     android:id="@+id/widget_uv_hour_3"
@@ -152,7 +140,8 @@
                     android:layout_height="wrap_content"
                     android:text="-"
                     android:textSize="28sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:textColor="#999999" />
 
                 <TextView
                     android:id="@+id/widget_time_hour_3"
@@ -160,7 +149,7 @@
                     android:layout_height="wrap_content"
                     android:text="--:--"
                     android:textSize="10sp"
-                    android:textColor="#666666" />
+                    android:textColor="#999999" />
             </LinearLayout>
 
         </LinearLayout>

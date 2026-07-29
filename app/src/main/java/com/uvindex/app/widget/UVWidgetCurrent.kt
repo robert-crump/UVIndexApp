@@ -17,11 +17,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class UVWidgetMax : AppWidgetProvider() {
+class UVWidgetCurrent : AppWidgetProvider() {
 
     companion object {
-        const val ACTION_REFRESH = "com.uvindex.app.widget.ACTION_REFRESH_MAX"
-        private const val TAG = "UVWidgetMax"
+        const val ACTION_REFRESH = "com.uvindex.app.widget.ACTION_REFRESH_CURRENT"
+        private const val TAG = "UVWidgetCurrent"
+
+        private fun backgroundResFor(uvIndex: Int): Int = when {
+            uvIndex <= 2 -> R.drawable.widget_bg_low
+            uvIndex <= 5 -> R.drawable.widget_bg_moderate
+            uvIndex <= 7 -> R.drawable.widget_bg_high
+            else -> R.drawable.widget_bg_very_high
+        }
     }
 
     override fun onUpdate(
@@ -44,7 +51,7 @@ class UVWidgetMax : AppWidgetProvider() {
         if (intent.action == ACTION_REFRESH || intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(context, UVWidgetMax::class.java)
+                ComponentName(context, UVWidgetCurrent::class.java)
             )
 
             Log.d(TAG, "Manual refresh/update for ${appWidgetIds.size} widgets")
@@ -60,7 +67,7 @@ class UVWidgetMax : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetId: Int
     ) {
-        val views = RemoteViews(context.packageName, R.layout.uv_widget_max)
+        val views = RemoteViews(context.packageName, R.layout.uv_widget_current)
 
         // Intent to open the app
         val appIntent = Intent(context, com.uvindex.app.MainActivity::class.java)
@@ -72,7 +79,7 @@ class UVWidgetMax : AppWidgetProvider() {
         )
 
         // Set click listener for the entire widget
-        views.setOnClickPendingIntent(R.id.widget_max_container, appPendingIntent)
+        views.setOnClickPendingIntent(R.id.widget_current_container, appPendingIntent)
 
         CoroutineScope(Dispatchers.Main).launch {
             try {
@@ -85,34 +92,39 @@ class UVWidgetMax : AppWidgetProvider() {
 
                 result.fold(
                     onSuccess = { forecast ->
-                        Log.d(TAG, "Forecast received successfully")
-                        Log.d(TAG, "dailyMaxRemaining: ${forecast.dailyMaxRemaining}")
-                        Log.d(TAG, "maxHourToday: ${forecast.maxHourToday}")
+                        val currentUV = forecast.currentHour.uvIndex.toInt()
+                        val currentHourValue = forecast.currentHour.hour
 
-                        val maxUV = forecast.dailyMaxRemaining.toInt()
-                        val maxHour = forecast.maxHourToday
+                        Log.d(TAG, "Current UV updated: $currentUV at hour: $currentHourValue")
 
-                        Log.d(TAG, "Max UV updated: $maxUV at hour: $maxHour")
+                        val fgColor = UVColorHelper.getColorInt(
+                            currentUV.toDouble(), context, UVColorHelper.ColorType.FOREGROUND
+                        )
 
-                        views.setTextViewText(R.id.widget_max_uv_value, maxUV.toString())
-                        views.setTextViewText(R.id.widget_max_label, String.format("%02d:00", maxHour))
-                        views.setTextColor(R.id.widget_max_uv_value, UVColorHelper.getWidgetUVColor(maxUV))
+                        views.setTextViewText(R.id.widget_current_uv_value, currentUV.toString())
+                        views.setTextViewText(R.id.widget_current_time, String.format("%02d:00", currentHourValue))
+                        views.setTextColor(R.id.widget_current_uv_value, fgColor)
+                        views.setTextColor(R.id.widget_current_time, fgColor)
+                        views.setInt(R.id.widget_current_container, "setBackgroundResource", backgroundResFor(currentUV))
 
                         appWidgetManager.updateAppWidget(appWidgetId, views)
                     },
                     onFailure = { error ->
                         Log.e(TAG, "Update failed: ${error.message}")
                         Log.e(TAG, "Error details: ", error)
-                        views.setTextViewText(R.id.widget_max_uv_value, "-")
-                        views.setTextViewText(R.id.widget_max_label, "--:--")
-                        views.setTextColor(R.id.widget_max_uv_value, parseColor("#999999"))
+                        views.setTextViewText(R.id.widget_current_uv_value, "-")
+                        views.setTextViewText(R.id.widget_current_time, "--:--")
+                        views.setTextColor(R.id.widget_current_uv_value, parseColor("#999999"))
+                        views.setTextColor(R.id.widget_current_time, parseColor("#999999"))
+                        views.setInt(R.id.widget_current_container, "setBackgroundResource", R.drawable.widget_bg_error)
                         appWidgetManager.updateAppWidget(appWidgetId, views)
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Exception during update", e)
-                views.setTextViewText(R.id.widget_max_uv_value, "-")
-                views.setTextColor(R.id.widget_max_uv_value, parseColor("#999999"))
+                views.setTextViewText(R.id.widget_current_uv_value, "-")
+                views.setTextColor(R.id.widget_current_uv_value, parseColor("#999999"))
+                views.setInt(R.id.widget_current_container, "setBackgroundResource", R.drawable.widget_bg_error)
                 appWidgetManager.updateAppWidget(appWidgetId, views)
             }
         }

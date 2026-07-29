@@ -76,7 +76,7 @@ class SelfProtectionTimeWidget : AppWidgetProvider() {
                             views.setTextViewText(R.id.widget_self_protection_value, "–")
                             views.setTextColor(
                                 R.id.widget_self_protection_value,
-                                UVColorHelper.getWidgetUVColor(0)
+                                UVColorHelper.getColorInt(0.0, context, UVColorHelper.ColorType.FOREGROUND)
                             )
                         } else {
                             val minutes = skinType.protectionMinutes(currentUV)
@@ -86,7 +86,7 @@ class SelfProtectionTimeWidget : AppWidgetProvider() {
                             )
                             views.setTextColor(
                                 R.id.widget_self_protection_value,
-                                UVColorHelper.getWidgetUVColor(currentUV.toInt())
+                                UVColorHelper.getColorInt(currentUV, context, UVColorHelper.ColorType.FOREGROUND)
                             )
                         }
 

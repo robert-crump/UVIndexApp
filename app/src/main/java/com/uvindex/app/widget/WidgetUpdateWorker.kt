@@ -74,19 +74,19 @@ class WidgetUpdateWorker(
         applicationContext.sendBroadcast(uvWidgetIntent)
         Log.d(TAG, "UVWidget updated (${uvWidgetIds.size} instances)")
 
-        // Update 2x2 Max Widget (falls vorhanden)
+        // Update 1x1 Current UV Widget (falls vorhanden)
         try {
-            val maxWidgetIntent = Intent(applicationContext, UVWidgetMax::class.java).apply {
+            val currentWidgetIntent = Intent(applicationContext, UVWidgetCurrent::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             }
-            val maxWidgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(applicationContext, UVWidgetMax::class.java)
+            val currentWidgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(applicationContext, UVWidgetCurrent::class.java)
             )
-            maxWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, maxWidgetIds)
-            applicationContext.sendBroadcast(maxWidgetIntent)
-            Log.d(TAG, "UVWidgetMax updated (${maxWidgetIds.size} instances)")
+            currentWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, currentWidgetIds)
+            applicationContext.sendBroadcast(currentWidgetIntent)
+            Log.d(TAG, "UVWidgetCurrent updated (${currentWidgetIds.size} instances)")
         } catch (e: Exception) {
-            Log.w(TAG, "UVWidgetMax not found or update failed: ${e.message}")
+            Log.w(TAG, "UVWidgetCurrent not found or update failed: ${e.message}")
         }
 
         // Update 1x1 Wind Widget (falls vorhanden)

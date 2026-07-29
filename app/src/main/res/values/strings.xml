@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">UV-Index</string>
     <string name="widget_description">UV-Index der nächsten 4 Stunden</string>
-    <string name="widget_max_description">Maximaler UV-Index des Tages</string>
+    <string name="widget_current_description">Aktueller UV-Index</string>
     <string name="wind_widget_description">Aktuelle Windrichtung und -geschwindigkeit</string>
     <string name="wind_widget_label">Wind</string>
     <string name="self_protection_time_widget_description">Eigenschutzzeit basierend auf Hauttyp und aktuellem UV-Index</string>
