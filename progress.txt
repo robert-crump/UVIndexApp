@@ -1,3 +1,82 @@
+## 2026-07-29 — Widget redesign: match main-screen UV colors, drop labels
+
+### Status: COMPLETE
+
+### What was implemented
+Pre-implementation: used `/grill-me` to resolve the design before writing code — which
+widget "3x1" actually referred to (the 4-cell row widget, not a literal 3-cell one),
+exactly which text counted as "the label" per widget, whether to reuse the main screen's
+`getColorInt` palette instead of the widget-only `getWidgetUVColor`, per-cell vs.
+whole-widget backgrounds for the row widget, full-bleed vs. framed background for the
+1x1, outer-frame/gap treatment once cells got their own colors, time-caption color, and
+the error/no-data visual. Mid-session the user also decided the 1x1 should switch from
+showing the daily max to the current-hour UV, which required a full rename since
+`AppWidgetProvider` class identity is tied to placed home-screen instances (acceptable
+here at `versionCode 1`).
+
+**1x1 widget — renamed `UVWidgetMax` → `UVWidgetCurrent`** (class, layout
+`uv_widget_max.xml` → `uv_widget_current.xml`, appwidget-info file, ids, the
+`ACTION_REFRESH_MAX` action constant, and `strings.xml`'s `widget_max_description` →
+`widget_current_description` = "Aktueller UV-Index"):
+- Now reads `forecast.currentHour` instead of `dailyMaxRemaining`/`maxHourToday`.
+- Dropped the static "Max." header entirely; kept the bare hour caption (e.g. "14:00").
+- Whole widget is now a full-bleed rounded background colored per UV bucket via new
+  `widget_bg_{low,moderate,high,very_high,error}.xml` drawables (24dp corners, colors
+  pulled from the same `colors.xml` entries the main screen's cards use), swapped at
+  runtime with `views.setInt(id, "setBackgroundResource", ...)`. Number and hour caption
+  both use `UVColorHelper.getColorInt(..., FOREGROUND)` — the exact main-screen palette.
+- Accepted as intentional: this duplicates the row widget's current-hour cell when both
+  are placed.
+
+**4-cell row widget (`UVWidget`, unchanged class name)**:
+- Dropped the location-name text and refresh button from the visible layout. The
+  refresh `ACTION_REFRESH` broadcast handling, pending intent, and
+  `showLoadingState`/`hideLoadingState` methods are unchanged in `UVWidget.kt` — the
+  button/progress views still exist in `uv_widget.xml` (now inside a zero-size,
+  `visibility="gone"` wrapper) purely so those RemoteViews calls keep resolving; a
+  comment in both files notes they're no longer reachable from the UI.
+- The 4 hourly cells now form one contiguous bar with no gaps/margins: each cell is its
+  own `LinearLayout` (`widget_cell_0..3`) with an individually-set background — the two
+  end cells use new left/right-rounded `widget_row_bg_{bucket}_{left,right}.xml`
+  drawables (16dp corners on the outer side only, square on the inner seam), the two
+  middle cells use a plain `setBackgroundColor` with `getColorInt(..., BACKGROUND)` (no
+  drawable needed since they have no rounding). Numbers and hour captions both switched
+  from the old widget-only `getWidgetUVColor` to `getColorInt(..., FOREGROUND)`.
+- Error/no-data cells (both the "-" fallback loop and outer error drawables) use a new
+  shared `@color/widget_uv_error_background` (dark neutral gray, `colors.xml`) so a
+  broken cell is never mistaken for a real low-UV green reading.
+
+**`SelfProtectionTimeWidget.kt`** (user follow-up after the main change): its value
+text also switched from `getWidgetUVColor` to `getColorInt(..., FOREGROUND)`, for the
+same reason — consistency with the main screen's UV color, not just the two widgets
+originally in scope.
+
+**`UVColorHelper.kt`**: `getWidgetUVColor()` removed — after the `SelfProtectionTimeWidget`
+follow-up it had no remaining callers anywhere in the app.
+
+**`WidgetUpdateHelper.kt` / `WidgetUpdateWorker.kt`**: updated their `UVWidgetMax` →
+`UVWidgetCurrent` references (class import, broadcast target, log strings); also fixed
+a stale "2x2 Max Widget" comment in `WidgetUpdateWorker.kt` to say "1x1 Current UV
+Widget" while touching that block.
+
+**`AndroidManifest.xml`**: receiver entry renamed `.widget.UVWidgetMax` →
+`.widget.UVWidgetCurrent`, action `ACTION_REFRESH_MAX` → `ACTION_REFRESH_CURRENT`,
+meta-data resource `uv_widget_max_info` → `uv_widget_current_info`.
+
+### Notes / not done
+- No new unit tests: purely `RemoteViews`/layout/drawable changes with no new
+  pure-Kotlin logic (same untestable-without-DI shape noted for every widget in this
+  codebase). Verified via a clean `assembleDebug` and the full existing suite.
+- Renaming `UVWidgetMax`'s `AppWidgetProvider` class breaks any home-screen instance of
+  that widget already placed on a device — accepted by the user given `versionCode 1`.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 84 tests run, 84 passed (0 failures), all
+pre-existing (no new tests; widget-orchestration-only change). `:app:assembleDebug` —
+BUILD SUCCESSFUL.
+
+---
+
 ## Issue #28 — Benachrichtigung: Tagesprognose
 
 ### Status: COMPLETE
