@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Static sample-data layout shown by the Android widget picker (android:previewLayout,
+     API 31+). Not bound to RemoteViews at runtime - values here are just for the picker. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@drawable/widget_bg_aqi_moderate">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="60"
+        android:textSize="36sp"
+        android:textStyle="bold"
+        android:textColor="@color/aqi_moderate"
+        android:gravity="center" />
+
+</LinearLayout>

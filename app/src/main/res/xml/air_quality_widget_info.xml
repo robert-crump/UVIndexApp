@@ -4,6 +4,7 @@
     android:minHeight="40dp"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/air_quality_widget"
+    android:previewLayout="@layout/air_quality_widget_preview"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:description="@string/air_quality_widget_description" />

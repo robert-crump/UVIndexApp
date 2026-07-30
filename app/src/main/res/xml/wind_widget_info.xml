@@ -4,6 +4,7 @@
     android:minHeight="40dp"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/wind_widget"
+    android:previewLayout="@layout/wind_widget_preview"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:description="@string/wind_widget_description" />
