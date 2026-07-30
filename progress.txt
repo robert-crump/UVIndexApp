@@ -1,3 +1,68 @@
+## 2026-07-30 — Air Quality widget (1x1): match main-screen AQI colors, drop label
+
+### Status: COMPLETE
+
+### What was implemented
+Follow-up to the 2026-07-29 UV widget redesign below — same treatment applied to the
+1x1 `AirQualityWidget`, which had been deliberately left text-only/static-background
+during its original build (#26) "for consistency with the other widgets." That
+rationale went stale once the UV widgets moved to full background tinting, so this
+closes the gap. Pre-implementation: used `/grill-me` to resolve scope (1x1 only — no
+4x1 AQ widget exists, and there's no hourly AQI data to drive one), whether to
+override the prior text-only decision (yes), what replaces the dropped "Luft" label
+(nothing — bare number, unlike UV's 1x1 which kept a dynamic hour caption), number
+sizing given the extra empty space (enlarged 22sp → 36sp), the error-state resource
+(a new dedicated `widget_aqi_error_background`, not a reuse of UV's), and the
+background-selector's shape (switch on the existing `getAirQualityLevel(aqi)` enum
+rather than duplicating threshold numbers inline like the UV widgets do).
+
+**`air_quality_widget.xml`:** dropped the static "Luft" header `TextView` entirely.
+Root container's background changed from the static `widget_max_background` (white,
+gray border) to `widget_bg_aqi_error` as its XML default (swapped at runtime). The
+value `TextView` is now the only child, enlarged from 22sp to 36sp.
+
+**New drawables `widget_bg_aqi_{good,fair,moderate,poor,very_poor,extremely_poor,
+error}.xml`:** full-bleed rounded rects (24dp corners), same shape spec as the UV
+1x1's `widget_bg_{low,moderate,high,very_high,error}.xml`, one per
+`AirQualityLevel` bucket plus a dedicated error/no-data variant, colors pulled from
+the existing `aqi_*_background` entries in `colors.xml`.
+
+**`colors.xml`:** added `widget_aqi_error_background` (#3A3A3A) — a separate
+resource from UV's `widget_uv_error_background` (same color, kept independent per
+user decision rather than shared, since AQI and UV background sets are otherwise
+fully separate palettes).
+
+**`AirQualityWidget.kt`:** added `backgroundResFor(aqi: Double)`, a `when` over
+`getAirQualityLevel(aqi)` (the existing data-model enum `AQIColorHelper` already
+switches on) mapping each of the 6 levels to its new drawable — reusing that seam
+instead of re-deriving the 20/40/60/80/100 breakpoints locally, unlike the UV
+widgets' inline range checks. Both the success and failure/exception paths now also
+call `views.setInt(widget_air_quality_container, "setBackgroundResource", ...)`
+alongside the existing text/color updates.
+
+**`AndroidManifest.xml`:** removed the stray `android:label="@string/
+air_quality_widget_label"` from the `AirQualityWidget` receiver — the two UV widget
+receivers never set one, this was a leftover inconsistency from AQ's original build.
+
+**`strings.xml`:** removed the now-unused `air_quality_widget_label` string (only
+the manifest `android:label` referenced it; `air_quality_widget_description` is
+untouched and still used by the widget-info XML).
+
+### Notes / not done
+- No new unit tests: purely `RemoteViews`/layout/drawable changes, same
+  untestable-without-DI shape as every other widget in this codebase. Verified via
+  clean `compileDebugKotlin`, `assembleDebug`, and the full existing test suite.
+- No GitHub issue for this one — it came directly out of a `/grill-me` session on
+  adapting the UV rework's logic to Air Quality, not a tracked issue (the original
+  AQ widget issue, #26, was already closed).
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all pre-existing tests still pass (no
+new tests; widget-orchestration-only change). `:app:assembleDebug` — BUILD
+SUCCESSFUL.
+
+---
+
 ## 2026-07-29 — Widget redesign: match main-screen UV colors, drop labels
 
 ### Status: COMPLETE
@@ -561,32 +626,3 @@ Slice 2 (#20) builds the 1x1 WindWidget on top of it.
 - NotificationHistoryStoreTest: 15/15 passed (unchanged)
 - UvRiskTest: 9/9 passed (unchanged)
 - NotificationDispatcherTest: 3/3 passed (unchanged)
-
-## 2026-07-25 — Daily Forecast Notification: missing Schutzempfehlung on High days
-
-### Status: COMPLETE
-
-### What happened
-User reported no "Schutzempfehlung" in the Daily Forecast Notification on a UV-7
-(hoch) day. Investigation found this was working as designed from #28: the High/
-Very High branch of `NotificationDecider.buildDailyContent` only appended the
-sun-avoidance window sentence, never a Schutzempfehlung sentence — even though
-`UvProtectionRecommendations.High` (`"Schatten, Sonnenbrille, Sonnencreme"`) had
-already been added in #28 for exactly this purpose and was sitting unused.
-
-User decided (not a revert to #28's intent, a new explicit choice): High/Very High
-days should get **both** sentences, window first.
-
-### What was implemented
-**`NotificationDecider.kt` (`buildDailyContent`):** High/Very High `extra` is now
-`sunAvoidanceSentence(forecast) + " Schutzempfehlung: ${UvProtectionRecommendations.High}."`
-— e.g. `"Max. 7 (hoch). Zwischen 12-15 Uhr direkte Sonne vermeiden. Schutzempfehlung:
-Schatten, Sonnenbrille, Sonnencreme."`. Moderate's format is unchanged.
-
-**`NotificationDeciderTest.kt`:** updated the hoch/sehr-hoch daily-content assertions
-to expect both sentences.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL, green.
-
----

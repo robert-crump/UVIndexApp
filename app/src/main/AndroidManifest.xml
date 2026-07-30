@@ -96,8 +96,7 @@
         <!-- Air Quality Widget (1x1) -->
         <receiver
             android:name=".widget.AirQualityWidget"
-            android:exported="true"
-            android:label="@string/air_quality_widget_label">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

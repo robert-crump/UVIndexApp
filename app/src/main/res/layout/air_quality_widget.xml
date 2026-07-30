@@ -5,18 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="8dp"
-    android:background="@drawable/widget_max_background">
-
-    <!-- Header -->
-    <TextView
-        android:id="@+id/widget_air_quality_header"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Luft"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:textColor="#333333"
-        android:gravity="center" />
+    android:background="@drawable/widget_bg_aqi_error">
 
     <!-- AQI value -->
     <TextView
@@ -25,7 +14,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:text="-"
-        android:textSize="22sp"
+        android:textSize="36sp"
         android:textStyle="bold"
         android:textColor="#999999"
         android:gravity="center" />

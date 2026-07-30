@@ -33,4 +33,6 @@
     <color name="aqi_very_poor_background">#470018</color>
     <color name="aqi_extremely_poor">#7D2181</color>
     <color name="aqi_extremely_poor_background">#450F47</color>
+    <!-- Neutral fallback for the AQI widget cell with no valid reading (error/loading) -->
+    <color name="widget_aqi_error_background">#3A3A3A</color>
 </resources>
