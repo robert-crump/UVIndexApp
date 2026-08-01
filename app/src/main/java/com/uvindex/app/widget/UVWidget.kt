@@ -197,6 +197,11 @@ class UVWidget : AppWidgetProvider() {
                             }
                         }
 
+                        val footerText = forecast.locationName?.let {
+                            context.getString(R.string.widget_uv_footer_with_city, it)
+                        } ?: context.getString(R.string.widget_uv_footer_no_city)
+                        views.setTextViewText(R.id.widget_uv_footer, footerText)
+
                         for (i in displayHours.size until 4) {
                             val containerId = CONTAINER_IDS[i]
                             val uvId = UV_TEXT_IDS[i]

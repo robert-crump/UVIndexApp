@@ -1,3 +1,70 @@
+## 2026-08-01 — 4x1 UV widget: divider + "UV-Index | City" footer
+
+### Status: COMPLETE
+
+### What was implemented
+Pre-implementation: used `/grill-me` to resolve the design before writing code — where
+the extra vertical space comes from (shrink the top UV-cell row, raise the widget's
+declared `minHeight` from 40dp to 64dp, rather than cramping into the existing budget or
+overlaying), who owns the widget's rounded corners once the footer becomes the new
+bottom edge (moved from the top row's left/right cells to the footer's bottom-left/
+bottom-right, so the pill shape's curve now starts at the divider), the footer's exact
+gray (#9E9E9E, chosen over a near-white gray for better contrast with white text against
+the rest of the widget's near-black cell backgrounds), the divider's style (1dp,
+semi-transparent white `#33FFFFFF`), text alignment (centered), localization (German
+"UV-Index | %1$s", matching the app's existing German-only strings, not the English
+wording used mid-conversation), the null-city fallback (bare "UV-Index", no "Standort"
+suffix), padding (4dp top/bottom, 8dp horizontal, as padding on the footer view itself —
+not margin, which would've left gaps breaking the pill shape), font weight (regular,
+matching the time captions rather than the bold UV numbers), long-city-name handling
+(`maxLines="1"` + `ellipsize="end"`), and whether the static widget-picker preview layout
+should get the same treatment (yes).
+
+**`uv_widget.xml`:** the UV-cell row's height changed from `match_parent` to `0dp` +
+`layout_weight="1"` so it yields space to the new footer. Added a 1dp full-width `View`
+divider below it, then a new `widget_uv_footer` `TextView` (10sp, regular weight, white,
+centered, `maxLines="1"`/`ellipsize="end"`, XML-default text
+`@string/widget_uv_footer_no_city` so the failure/exception path — which never touches
+this view — still shows a sane fallback).
+
+**New drawable `widget_uv_footer_background.xml`:** solid `@color/widget_uv_footer_background`
+with only the bottom corners rounded 16dp, matching the existing radius used by the
+per-cell drawables.
+
+**All 10 `widget_row_bg_{error,low,moderate,high,very_high}_{left,right}.xml`:** zeroed
+out `bottomLeftRadius`/`bottomRightRadius` (previously 16dp on the outer side) now that
+the footer, not the cell row, forms the widget's bottom edge.
+
+**`colors.xml`:** added `widget_uv_footer_background` (#9E9E9E).
+
+**`strings.xml`:** added `widget_uv_footer_with_city` ("UV-Index | %1$s") and
+`widget_uv_footer_no_city` ("UV-Index").
+
+**`uv_widget_info.xml`:** `minHeight` 40dp → 64dp.
+
+**`UVWidget.kt`:** on the success path, binds `widget_uv_footer` from
+`forecast.locationName` (a field that already flowed through the widget's cached-forecast
+pipeline but was previously unused by this widget) via the new format string, falling
+back to the no-city string when null.
+
+**`uv_widget_preview.xml`:** same divider/footer structure added to the static
+widget-picker preview, with a hardcoded sample "UV-Index | Berlin".
+
+### Notes / not done
+- No new unit tests: purely `RemoteViews`/layout/drawable changes, same
+  untestable-without-DI shape as every other widget change in this codebase.
+- No GitHub issue for this one — came directly out of a `/grill-me` session, not a
+  tracked issue.
+- Existing widget instances already placed on a home screen keep their current size;
+  the raised `minHeight` only affects new placements/resizes.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all existing tests still pass (no new
+tests; widget-layout/orchestration-only change). `:app:assembleDebug` — BUILD
+SUCCESSFUL.
+
+---
+
 ## 2026-07-30 — Air Quality widget (1x1): match main-screen AQI colors, drop label
 
 ### Status: COMPLETE
@@ -560,69 +627,3 @@ data path and `travelOctant` helper.
 ### Test results
 `:app:testDebugUnitTest` — BUILD SUCCESSFUL, all 60 existing tests still pass (no new tests
 added; behavior is widget-orchestration only). `:app:assembleDebug` — BUILD SUCCESSFUL.
-
----
-
-## Issue #19 — Wind data flows into the forecast
-
-### Status: COMPLETE
-
-### Parent
-#18 — Wind widget (1x1). This is Slice 1 of 2 (data path + direction math);
-Slice 2 (#20) builds the 1x1 WindWidget on top of it.
-
-### What was implemented
-
-**`OpenMeteoApi.kt`:**
-- Extended the default `hourly` query from `uv_index,temperature_2m` to
-  `uv_index,temperature_2m,windspeed_10m,winddirection_10m`. Open-Meteo's default
-  `windspeed_unit` is `kmh`, so no unit param is needed — the issue's "km/h" is the default.
-
-**`WeatherResponse.kt` (`HourlyData`):**
-- Added `@SerialName("windspeed_10m") windSpeed: List<Double> = emptyList()` and
-  `@SerialName("winddirection_10m") windDirection: List<Double> = emptyList()`. Defaulted to
-  empty so a partial/legacy API response without the fields still deserializes.
-
-**`UVForecast.kt` (`HourlyForecast`):**
-- Added `windSpeed: Double = 0.0` (km/h, rounded) and `windDirection: Double = 0.0`
-  (source bearing in degrees — where the wind comes FROM). **Defaults are load-bearing**:
-  `CachedWeatherData` serializes `UVForecast`, so old cached payloads written before this
-  change still deserialize (the back-compat acceptance criterion).
-
-**`WeatherRepository.parseWeatherResponse()`:**
-- Populates the two new fields per hour: `windSpeed` via
-  `response.hourly.windSpeed.getOrNull(index)?.roundToInt()?.toDouble() ?: 0.0` (rounded at
-  parse time, same pattern as uv/temperature from #10/#15), `windDirection` via
-  `response.hourly.windDirection.getOrNull(index) ?: 0.0` (kept raw; bucketed to an octant by
-  the display helper, so no rounding needed). `getOrNull` guards against the empty-list default.
-- `reParseWithCurrentTime()` needed no change — it copies `HourlyForecast` objects straight
-  from `allDayForecasts`, so wind survives the cache re-parse for free.
-
-**New pure module `com.uvindex.app.wind.WindDirection`
-(`app/src/main/java/com/uvindex/app/wind/WindDirection.kt`):**
-- `enum class CompassOctant { N, NE, E, SE, S, SW, W, NW }` — ordered clockwise from North;
-  ordinal == 45° octant index.
-- `fun travelOctant(sourceBearingDegrees: Double): CompassOctant` — converts the
-  meteorological source bearing into the octant the wind travels TOWARD:
-  `travel = source + 180`, normalized into `[0,360)` (handles negative / >360 inputs),
-  then `(travel / 45).roundToInt() % 8` indexes `CompassOctant.entries`. So a wind "from N"
-  (0°) yields a southward arrow. Pure Kotlin, no Android imports — used by Slice 2's widget.
-
-**`WindDirectionTest.kt` (`app/src/test/java/com/uvindex/app/wind/`):**
-- 11 pure JVM tests: 4 cardinal sources (N→S, E→W, S→N, W→E), 2 intercardinal (NE→SW, SW→NE),
-  2 rounding-boundary cases (22°→S, 23°→SW), and 3 normalization cases (350° wrap, exactly
-  360°, negative −90°).
-
-### Notes / not done
-- Wind speed/direction parsing inside `parseWeatherResponse` is not independently unit-tested:
-  the method is private and `WeatherRepository` has no DI seam (same constraint noted for
-  #15/#10). The direction math — the actual risk in this slice — is fully covered by the pure
-  `travelOctant` tests. The data threading is verified by a clean compile + green suite.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 60 tests run, 60 passed (0 failures).
-- WindDirectionTest: 11/11 passed (pure JVM, new)
-- NotificationDeciderTest: 22/22 passed (unchanged)
-- NotificationHistoryStoreTest: 15/15 passed (unchanged)
-- UvRiskTest: 9/9 passed (unchanged)
-- NotificationDispatcherTest: 3/3 passed (unchanged)

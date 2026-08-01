@@ -4,7 +4,7 @@
     <solid android:color="@color/widget_uv_error_background" />
     <corners
         android:topLeftRadius="16dp"
-        android:bottomLeftRadius="16dp"
+        android:bottomLeftRadius="0dp"
         android:topRightRadius="0dp"
         android:bottomRightRadius="0dp" />
 </shape>
