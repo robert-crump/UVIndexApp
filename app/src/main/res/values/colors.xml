@@ -16,8 +16,8 @@
     <color name="red_very_high_uv_background">#511D12</color>
     <!-- Neutral fallback for widget cells with no valid UV reading (error/loading) -->
     <color name="widget_uv_error_background">#3A3A3A</color>
-    <!-- 4x1 UV widget footer ("UV-Index | City") background -->
-    <color name="widget_uv_footer_background">#9E9E9E</color>
+    <!-- 4x1 UV widget footer ("UV-Index | City") text, on a white background -->
+    <color name="widget_uv_footer_gray">#9E9E9E</color>
 
     <!-- Air Quality Colors (European AQI, 6 levels).
          Foreground values sampled directly from the EEA's official EAQI legend

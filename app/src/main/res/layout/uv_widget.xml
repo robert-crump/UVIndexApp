@@ -155,11 +155,13 @@
 
         </LinearLayout>
 
-        <!-- Divider: thin edge-to-edge line separating the UV cells from the footer -->
-        <View
+        <!-- Divider: thin edge-to-edge line separating the UV cells from the footer.
+             Plain android.view.View is not in RemoteViews' inflatable class whitelist,
+             so a FrameLayout is used to render the line instead. -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#33FFFFFF" />
+            android:background="@color/white" />
 
         <!-- Footer: "UV-Index | City" -->
         <TextView
@@ -176,7 +178,7 @@
             android:ellipsize="end"
             android:text="@string/widget_uv_footer_no_city"
             android:textSize="10sp"
-            android:textColor="@color/white" />
+            android:textColor="@color/widget_uv_footer_gray" />
 
     </LinearLayout>
 
