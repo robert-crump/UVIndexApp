@@ -41,7 +41,30 @@
             android:layout_weight="1"
             android:orientation="horizontal">
 
-            <!-- Current Hour (left end, rounded left corners) -->
+            <!-- Icon column: identifies the bar as UV data. Rounded left corners
+                 (the widget's own leftmost edge now that the footer is gone).
+                 Background + icon tint are derived from the current hour (cell 0). -->
+            <LinearLayout
+                android:id="@+id/widget_icon_column"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.6667"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_row_bg_error_left">
+
+                <ImageView
+                    android:id="@+id/widget_icon"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="2dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_sun"
+                    android:tint="#999999"
+                    android:contentDescription="@null" />
+            </LinearLayout>
+
+            <!-- Current Hour (square corners now; the icon column owns the left end) -->
             <LinearLayout
                 android:id="@+id/widget_cell_0"
                 android:layout_width="0dp"
@@ -49,7 +72,7 @@
                 android:layout_weight="1"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:background="@drawable/widget_row_bg_error_left">
+                android:background="@color/widget_uv_error_background">
 
                 <TextView
                     android:id="@+id/widget_uv_hour_0"
@@ -154,31 +177,6 @@
             </LinearLayout>
 
         </LinearLayout>
-
-        <!-- Divider: thin edge-to-edge line separating the UV cells from the footer.
-             Plain android.view.View is not in RemoteViews' inflatable class whitelist,
-             so a FrameLayout is used to render the line instead. -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/white" />
-
-        <!-- Footer: "UV-Index | City" -->
-        <TextView
-            android:id="@+id/widget_uv_footer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:background="@drawable/widget_uv_footer_background"
-            android:gravity="center"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="@string/widget_uv_footer_no_city"
-            android:textSize="10sp"
-            android:textColor="@color/widget_uv_footer_gray" />
 
     </LinearLayout>
 

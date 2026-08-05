@@ -16,13 +16,33 @@
             android:layout_weight="1"
             android:orientation="horizontal">
 
+            <!-- Icon column: identifies the bar as UV data. Background + icon tint
+                 are derived from the current hour (first cell). -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.6667"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_row_bg_moderate_left">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="2dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_sun"
+                    android:tint="@color/yellow_moderate_uv"
+                    android:contentDescription="@null" />
+            </LinearLayout>
+
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:orientation="vertical"
                 android:gravity="center"
-                android:background="@drawable/widget_row_bg_moderate_left">
+                android:background="@color/yellow_moderate_uv_background">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -113,30 +133,6 @@
             </LinearLayout>
 
         </LinearLayout>
-
-        <!-- Divider: thin edge-to-edge line separating the UV cells from the footer.
-             Plain android.view.View is not in RemoteViews' inflatable class whitelist,
-             so a FrameLayout is used to render the line instead. -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/white" />
-
-        <!-- Footer: "UV-Index | City" -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:background="@drawable/widget_uv_footer_background"
-            android:gravity="center"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="UV-Index | Berlin"
-            android:textSize="10sp"
-            android:textColor="@color/widget_uv_footer_gray" />
 
     </LinearLayout>
 

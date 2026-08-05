@@ -188,7 +188,20 @@ class UVWidget : AppWidgetProvider() {
                             views.setTextColor(timeId, fgColor)
 
                             when (index) {
-                                0 -> views.setInt(containerId, "setBackgroundResource", endBackgroundRes(uv, isLeftEnd = true))
+                                0 -> {
+                                    // Cell 0 itself is now a plain middle cell; the icon column
+                                    // to its left owns the rounded left corner and carries the
+                                    // current hour's category color + accent tint instead.
+                                    views.setInt(
+                                        containerId, "setBackgroundColor",
+                                        UVColorHelper.getColorInt(uv.toDouble(), context, UVColorHelper.ColorType.BACKGROUND)
+                                    )
+                                    views.setInt(
+                                        R.id.widget_icon_column, "setBackgroundResource",
+                                        endBackgroundRes(uv, isLeftEnd = true)
+                                    )
+                                    views.setInt(R.id.widget_icon, "setColorFilter", fgColor)
+                                }
                                 3 -> views.setInt(containerId, "setBackgroundResource", endBackgroundRes(uv, isLeftEnd = false))
                                 else -> views.setInt(
                                     containerId, "setBackgroundColor",
@@ -196,11 +209,6 @@ class UVWidget : AppWidgetProvider() {
                                 )
                             }
                         }
-
-                        val footerText = forecast.locationName?.let {
-                            context.getString(R.string.widget_uv_footer_with_city, it)
-                        } ?: context.getString(R.string.widget_uv_footer_no_city)
-                        views.setTextViewText(R.id.widget_uv_footer, footerText)
 
                         for (i in displayHours.size until 4) {
                             val containerId = CONTAINER_IDS[i]
@@ -213,7 +221,17 @@ class UVWidget : AppWidgetProvider() {
                             views.setTextColor(timeId, parseColor("#999999"))
 
                             when (i) {
-                                0 -> views.setInt(containerId, "setBackgroundResource", R.drawable.widget_row_bg_error_left)
+                                0 -> {
+                                    views.setInt(
+                                        containerId, "setBackgroundColor",
+                                        ContextCompat.getColor(context, R.color.widget_uv_error_background)
+                                    )
+                                    views.setInt(
+                                        R.id.widget_icon_column, "setBackgroundResource",
+                                        R.drawable.widget_row_bg_error_left
+                                    )
+                                    views.setInt(R.id.widget_icon, "setColorFilter", parseColor("#999999"))
+                                }
                                 3 -> views.setInt(containerId, "setBackgroundResource", R.drawable.widget_row_bg_error_right)
                                 else -> views.setInt(
                                     containerId, "setBackgroundColor",
