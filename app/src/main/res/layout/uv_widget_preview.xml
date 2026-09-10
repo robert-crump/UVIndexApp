@@ -17,23 +17,30 @@
             android:orientation="horizontal">
 
             <!-- Icon column: identifies the bar as UV data. Background + icon tint
-                 are derived from the current hour (first cell). -->
+                 are derived from the current hour (first cell). Same weight as the
+                 four hourly cells so all five columns share the width equally. The
+                 icon + invisible spacer mirror the number/time stack in the cells so
+                 the icon lines up with, and is exactly as tall as, the UV number. -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.6667"
+                android:layout_weight="1"
                 android:orientation="vertical"
                 android:gravity="center"
                 android:background="@drawable/widget_row_bg_moderate_left">
 
                 <ImageView
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:padding="2dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_sun"
                     android:tint="@color/yellow_moderate_uv"
                     android:contentDescription="@null" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="14dp"
+                    android:visibility="invisible" />
             </LinearLayout>
 
             <LinearLayout

@@ -43,25 +43,33 @@
 
             <!-- Icon column: identifies the bar as UV data. Rounded left corners
                  (the widget's own leftmost edge now that the footer is gone).
-                 Background + icon tint are derived from the current hour (cell 0). -->
+                 Background + icon tint are derived from the current hour (cell 0).
+                 Same weight as the four hourly cells so all five columns share the
+                 width equally (1/5 each). The icon + invisible spacer mirror the
+                 number/time stack in the cells so the icon lines up with, and is
+                 exactly as tall as, the UV number above the time label. -->
             <LinearLayout
                 android:id="@+id/widget_icon_column"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="0.6667"
+                android:layout_weight="1"
                 android:orientation="vertical"
                 android:gravity="center"
                 android:background="@drawable/widget_row_bg_error_left">
 
                 <ImageView
                     android:id="@+id/widget_icon"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:padding="2dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_sun"
                     android:tint="#999999"
                     android:contentDescription="@null" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="14dp"
+                    android:visibility="invisible" />
             </LinearLayout>
 
             <!-- Current Hour (square corners now; the icon column owns the left end) -->
