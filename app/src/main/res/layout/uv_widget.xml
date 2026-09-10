@@ -66,7 +66,7 @@
                     android:tint="#999999"
                     android:contentDescription="@null" />
 
-                <View
+                <FrameLayout
                     android:layout_width="1dp"
                     android:layout_height="14dp"
                     android:visibility="invisible" />
