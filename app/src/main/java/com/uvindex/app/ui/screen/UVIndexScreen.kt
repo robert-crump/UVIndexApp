@@ -666,35 +666,6 @@ fun ErrorContent(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
-fun UVChartCard(forecast: UVForecast) {
-    // Formatiere das aktuelle Datum
-    val currentDate = java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.getDefault())
-        .format(java.util.Date())
-
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "UV-Index: $currentDate",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            UVBarChart(
-                forecast = forecast,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(187.dp)
-            )
-        }
-    }
-}
-
-@Composable
 fun AirQualityCard(
     aqi: Double?,
     modifier: Modifier = Modifier

@@ -7,7 +7,6 @@ import com.uvindex.app.data.local.DataStoreManager
 import com.uvindex.app.data.location.LocationService
 import com.uvindex.app.data.model.CachedWeatherData
 import com.uvindex.app.data.model.HourlyForecast
-import com.uvindex.app.data.model.TimeSlot
 import com.uvindex.app.data.model.UVForecast
 import com.uvindex.app.util.CacheManager
 import kotlin.math.roundToInt
@@ -194,15 +193,15 @@ class WeatherRepository(context: Context) {
         return try {
             val cached = json.decodeFromString<CachedWeatherData>(cachedJson)
             Log.d(TAG, "getCachedForecast: cache loaded (lat=${cached.latitude}, lon=${cached.longitude}, age=${(System.currentTimeMillis() - cached.timestamp) / 60000}min)")
-            // Re-parse with current time and latitude so that currentHour, nextHours and clearSkyMax are up to date
-            reParseWithCurrentTime(cached.forecast, cached.latitude)
+            // Re-parse with current time so that currentHour and nextHours are up to date
+            reParseWithCurrentTime(cached.forecast)
         } catch (e: Exception) {
             Log.e(TAG, "getCachedForecast: failed to parse cached data: ${e.message}", e)
             null
         }
     }
 
-    private fun reParseWithCurrentTime(oldForecast: UVForecast, latitude: Double): UVForecast? {
+    private fun reParseWithCurrentTime(oldForecast: UVForecast): UVForecast? {
         val now = LocalDateTime.now()
 
         // Check if data is from the same day
@@ -241,21 +240,6 @@ class WeatherRepository(context: Context) {
         val maxHourToday = remainingHours.maxByOrNull { it.uvIndex }?.hour
             ?: currentHourForecast.hour
 
-        // Recalculate hourly clear-sky UV values
-        // This is important because the solar elevation changes every hour
-        val clearSkyHourly = calculateClearSkyHourly(
-            latitude = latitude,
-            dateTime = now,
-            todayForecasts = oldForecast.allDayForecasts
-        )
-
-        // Clear-sky value for the current hour
-        val clearSkyMax = if (now.hour in clearSkyHourly.indices) {
-            clearSkyHourly[now.hour]
-        } else {
-            0.0
-        }
-
         // If no lastUpdateTime is present (old cache), generate one
         val updateTime = oldForecast.lastUpdateTime ?: run {
             java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
@@ -267,10 +251,7 @@ class WeatherRepository(context: Context) {
             nextHours = nextHours,
             dailyMax = dailyMax,
             dailyMaxRemaining = dailyMaxRemaining,
-            clearSkyMax = clearSkyMax,
-            clearSkyHourly = clearSkyHourly,
             maxHourToday = maxHourToday,
-            highUVTimeSlots = oldForecast.highUVTimeSlots,
             locationName = oldForecast.locationName,
             allDayForecasts = oldForecast.allDayForecasts,
             airQuality = oldForecast.airQuality,
@@ -328,35 +309,16 @@ class WeatherRepository(context: Context) {
         val maxHourToday = remainingHours.maxByOrNull { it.uvIndex }?.hour
             ?: currentHour.hour
 
-        val highUVTimeSlots = findHighUVTimeSlots(todayForecasts)
-
         // Current timestamp
         val currentTime = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
             .format(java.util.Date())
-
-        // Calculate hourly clear-sky UV values for the entire day
-        val clearSkyHourly = calculateClearSkyHourly(
-            latitude = response.latitude ?: 0.0,
-            dateTime = now,
-            todayForecasts = todayForecasts
-        )
-
-        // Clear-sky value for the current hour
-        val clearSkyMax = if (now.hour in clearSkyHourly.indices) {
-            clearSkyHourly[now.hour]
-        } else {
-            0.0
-        }
 
         return UVForecast(
             currentHour = currentHour,
             nextHours = nextHours,
             dailyMax = dailyMax,
             dailyMaxRemaining = dailyMaxRemaining,
-            clearSkyMax = clearSkyMax,
-            clearSkyHourly = clearSkyHourly,
             maxHourToday = maxHourToday,
-            highUVTimeSlots = highUVTimeSlots,
             locationName = locationName,
             allDayForecasts = todayForecasts,
             airQuality = airQuality,
@@ -365,124 +327,4 @@ class WeatherRepository(context: Context) {
         )
     }
 
-    private fun findHighUVTimeSlots(forecasts: List<HourlyForecast>): List<TimeSlot> {
-        val slots = mutableListOf<TimeSlot>()
-        var startHour: Int? = null
-
-        forecasts.sortedBy { it.hour }.forEach { forecast ->
-            if (forecast.uvIndex >= 4.0) {
-                if (startHour == null) {
-                    startHour = forecast.hour
-                }
-            } else {
-                if (startHour != null) {
-                    slots.add(TimeSlot(startHour!!, forecast.hour - 1))
-                    startHour = null
-                }
-            }
-        }
-
-        if (startHour != null) {
-            val lastHour = forecasts.filter { it.uvIndex >= 4.0 }.maxOfOrNull { it.hour } ?: forecasts.last().hour
-            slots.add(TimeSlot(startHour!!, lastHour))
-        }
-
-        return slots
-    }
-
-    /**
-     * Calculates hourly clear-sky UV values for all hours of the day.
-     *
-     * @param latitude Location latitude
-     * @param dateTime Current date/time
-     * @param todayForecasts Hourly forecasts for today
-     * @return List of 24 clear-sky UV values (index = hour 0–23)
-     */
-    private fun calculateClearSkyHourly(
-        latitude: Double,
-        dateTime: LocalDateTime,
-        todayForecasts: List<HourlyForecast>
-    ): List<Double> {
-        val dayOfYear = dateTime.dayOfYear
-        val month = dateTime.monthValue
-
-        val seasonalModifier = when (month) {
-            12, 1, 2 -> 0.8
-            3, 4, 5 -> 1.0
-            6, 7, 8 -> 1.2
-            else -> 1.0
-        }
-
-        return (0..23).map { hour ->
-            val solarElevation = calculateSolarElevation(latitude, dayOfYear, hour)
-            if (solarElevation <= 0) {
-                0.0
-            } else {
-                val clearSkyBase = when {
-                    solarElevation < 10 -> 0.5
-                    solarElevation < 20 -> 2.0
-                    solarElevation < 30 -> 4.0
-                    solarElevation < 45 -> 6.0
-                    solarElevation < 60 -> 9.0
-                    solarElevation < 75 -> 12.0
-                    else -> 15.0
-                }
-
-                val estimatedClearSky = clearSkyBase * seasonalModifier
-                val forecastedUV = todayForecasts.find { it.hour == hour }?.uvIndex ?: 0.0
-
-                maxOf(estimatedClearSky, forecastedUV * 1.3).coerceIn(0.0, 16.0).roundToInt().toDouble()
-            }
-        }
-    }
-
-    /**
-     * Calculates the solar elevation angle for a given hour.
-     *
-     * @param latitude Latitude in degrees
-     * @param dayOfYear Day of the year (1–365/366)
-     * @param hour Hour of the day (0–23)
-     * @return Solar elevation in degrees (0 = horizon, 90 = zenith)
-     */
-    private fun calculateSolarElevation(latitude: Double, dayOfYear: Int, hour: Int): Double {
-        // Solar declination (angle of the sun above/below the equator)
-        val declination = calculateSolarDeclinationFactor(dayOfYear)
-
-        // DST correction: during daylight saving time the solar noon is at ~13:00 instead of 12:00
-        val isDST = java.time.ZonedDateTime.now().zone.rules
-            .isDaylightSavings(java.time.Instant.now())
-        val solarHour = if (isDST) hour - 1.0 else hour.toDouble()
-
-        // Hour angle (0° = solar noon, 15° per hour)
-        // 12:00 = 0°, 13:00 = 15°, 11:00 = -15°
-        val hourAngle = (solarHour - 12.0) * 15.0
-
-        // Convert to radians
-        val latRad = Math.toRadians(latitude)
-        val decRad = Math.toRadians(declination)
-        val hourRad = Math.toRadians(hourAngle)
-
-        // Calculate solar elevation using the formula:
-        // sin(elevation) = sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(hourAngle)
-        val sinElevation = Math.sin(latRad) * Math.sin(decRad) +
-                Math.cos(latRad) * Math.cos(decRad) * Math.cos(hourRad)
-
-        val elevation = Math.toDegrees(Math.asin(sinElevation.coerceIn(-1.0, 1.0)))
-
-        return elevation
-    }
-
-    /**
-     * Calculates the solar declination factor for a given day.
-     *
-     * @param dayOfYear Day of the year (1–365/366)
-     * @return Declination angle in degrees
-     */
-    private fun calculateSolarDeclinationFactor(dayOfYear: Int): Double {
-        // Simplified calculation of solar declination
-        // Maximum (~23.44°) around summer solstice (day 172)
-        // Minimum (~-23.44°) around winter solstice (day 355)
-        val angle = 2.0 * Math.PI * (dayOfYear - 81) / 365.0
-        return 23.44 * Math.sin(angle)
-    }
 }

@@ -1,3 +1,59 @@
+## 2026-09-18 — Issue #31: UV Forecast — remove dead derived fields, solar math and the abandoned clear-sky chart
+
+### Status: COMPLETE
+
+### What was implemented
+Removed derived `UVForecast` data that was computed, cached and re-derived on every
+read but never surfaced to the user, per the issue's confirmation that the clear-sky
+chart is abandoned, not unfinished.
+
+**`data/model/UVForecast.kt`:** removed `clearSkyMax`, `clearSkyHourly` and
+`highUVTimeSlots` fields from `UVForecast`; deleted the now-unreferenced `TimeSlot`
+data class entirely.
+
+**`data/repository/WeatherRepository.kt`:** removed the `TimeSlot` import and all
+computation of the three dead fields from both derivation paths (`parseWeatherResponse`
+and `reParseWithCurrentTime`, which lost its now-unused `latitude` parameter). Deleted
+the ~130 lines of solar/astronomy math that only fed those fields: `findHighUVTimeSlots`
+(UV >= 4.0 threshold, which matched no glossary concept — `classifyUvRisk` owns "High"
+at >= 6), `calculateClearSkyHourly`, `calculateSolarElevation`, and
+`calculateSolarDeclinationFactor`. The repository now contains no astronomy.
+
+**`ui/components/UVChartComposables.kt`:** deleted `ClearSkyBarChart`, which had no
+caller. `UVBarChart` and `TemperatureLineChart` are untouched and still render (used by
+`UVChartDialog`/`TemperatureChartDialog` in `UVIndexScreen.kt`).
+
+**`ui/screen/UVIndexScreen.kt`:** deleted `UVChartCard`, which also had no caller (a
+separate dead composable from the two dialog-based charts that are still live).
+
+**`test/notification/NotificationDeciderTest.kt`:** the 4 test-fixture functions that
+constructed a full `UVForecast` (`fakeForecast`, `forecastWithUV`, `dailyForecast`,
+`forecastWithHoursAt`) dropped the 3 removed constructor args each.
+
+Cache-miss safety: `WeatherRepository.getCachedForecast()` already wraps
+`json.decodeFromString<CachedWeatherData>` in a try/catch that returns `null` on any
+decode failure, which was reused as-is — an old cache with the previous (larger) JSON
+shape now fails `kotlinx.serialization` strict decoding (unknown-but-absent required
+fields), is caught, logged, and returns `null`, which callers already treat as a cache
+miss and fall through to a fresh API fetch. No new code needed for this path, only
+confirmed by reading the existing exception handling.
+
+### Notes / not done
+- Did not touch the two derivation paths' shared duplication (parse-time vs.
+  cache-re-read both recompute `dailyMax`/`nextHours`/etc. independently) — the issue
+  explicitly scoped that unification to a future slice.
+- No manual on-device install-over-previous-build test performed (no device/emulator in
+  this environment); verified the crash-safety claim by code inspection of the existing
+  try/catch instead, per the acceptance criteria's own "manual test" caveat.
+
+### Test results
+`grep -rn "clearSky\|highUVTimeSlots" app/src` — no matches.
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all existing tests pass (fixture-only
+changes, no new tests needed).
+`:app:assembleDebug` — BUILD SUCCESSFUL.
+
+---
+
 ## 2026-09-18 — Issue #30: Navigability — move files to match packages, notification classes into notification package
 
 ### Status: COMPLETE

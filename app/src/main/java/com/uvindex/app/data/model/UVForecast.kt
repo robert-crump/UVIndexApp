@@ -8,10 +8,7 @@ data class UVForecast(
     val nextHours: List<HourlyForecast>,
     val dailyMax: Double,
     val dailyMaxRemaining: Double,
-    val clearSkyMax: Double,  // Theoretical maximum under clear sky conditions
-    val clearSkyHourly: List<Double> = emptyList(),  // Hourly clear-sky UV values (index 0–23)
     val maxHourToday: Int,    // Hour of the daily UV peak
-    val highUVTimeSlots: List<TimeSlot>,
     val locationName: String?,
     val allDayForecasts: List<HourlyForecast>,
     val airQuality: Double?,
@@ -27,12 +24,6 @@ data class HourlyForecast(
     val temperature: Double,
     val windSpeed: Double = 0.0,      // km/h, rounded; 0.0 default keeps old caches deserializable
     val windDirection: Double = 0.0   // source bearing in degrees (where the wind comes FROM)
-)
-
-@Serializable
-data class TimeSlot(
-    val startHour: Int,
-    val endHour: Int
 )
 
 @Serializable
