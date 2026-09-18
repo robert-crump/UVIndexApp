@@ -1,3 +1,52 @@
+## 2026-09-18 — Issue #30: Navigability — move files to match packages, notification classes into notification package
+
+### Status: COMPLETE
+
+### What was implemented
+Pure move/rename slice, no behavior change, per the issue's acceptance criteria.
+
+**Moved to match declared package (directory now matches `package` line):**
+- `WidgetUpdateScheduler.kt`: app root → `widget/` (already declared `com.uvindex.app.widget`).
+- `ScreenUnlockReceiver.kt`: app root → `widget/` (already declared `com.uvindex.app.widget`).
+
+**Moved into the notification domain, with package declaration updated to match:**
+- `NotificationActionReceiver.kt`: app root (`com.uvindex.app.worker`) → `notification/`
+  (`com.uvindex.app.notification`), alongside `NotificationDecider`, `NotificationDispatcher`,
+  `NotificationHistoryStore`.
+- `NotificationScheduler.kt`: `widget/` (`com.uvindex.app.widget`) → `notification/`
+  (`com.uvindex.app.notification`).
+
+**Import/reference fixups required by the two package changes:**
+- `AndroidManifest.xml`: `.worker.NotificationActionReceiver` → `.notification.NotificationActionReceiver`.
+- `MainActivity.kt`, `notification/NotificationDispatcher.kt`: updated
+  `NotificationActionReceiver` import (dropped entirely in `NotificationDispatcher.kt` since
+  it's now same-package).
+- `SettingsActivity.kt`, `UVIndexApplication.kt`: updated `NotificationScheduler` import from
+  `com.uvindex.app.widget` to `com.uvindex.app.notification`.
+- `widget/ScreenUnlockReceiver.kt`: added a new `import com.uvindex.app.notification.
+  NotificationScheduler` — it calls `NotificationScheduler.scheduleDailyNotification` on boot,
+  which was same-package before `NotificationScheduler` moved out of `widget`.
+- `widget/WidgetUpdateScheduler.kt`'s own package didn't change, so its one external
+  reference (`MainActivity.kt`'s `import com.uvindex.app.widget.WidgetUpdateScheduler`)
+  needed no edit.
+
+Verified with a script comparing every `.kt` file's `package` declaration against its
+directory path under `app/src/main/java` — zero mismatches remain.
+
+### Notes / not done
+- No wildcard imports introduced; no logic changed in any moved file — diff is moves plus
+  package/import lines only (confirmed via `git diff --stat`: 7 files touched outside the
+  4 renames, 6 lines total changed).
+- No test files referenced any of the four moved classes, so no test changes were needed
+  beyond the package/import fixups already covered above.
+
+### Test results
+`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all existing tests still pass, no test changes.
+`:app:assembleDebug` — BUILD SUCCESSFUL (confirms manifest receiver entries resolve to the
+moved classes).
+
+---
+
 ## 2026-08-01 — 4x1 UV widget: divider + "UV-Index | City" footer
 
 ### Status: COMPLETE
@@ -208,422 +257,3 @@ pre-existing (no new tests; widget-orchestration-only change). `:app:assembleDeb
 BUILD SUCCESSFUL.
 
 ---
-
-## Issue #28 — Benachrichtigung: Tagesprognose
-
-### Status: COMPLETE
-
-### What was implemented
-Reworked the existing Daily Forecast Notification's content (`NotificationDecider.
-buildDailyContent`, channel ID 1, same 6:30 AM trigger and `dailyEnabled` toggle —
-no new channel) to match the issue's spec, rather than adding a second notification.
-
-**`NotificationDecider.kt`:**
-- Title: `"Tagesprognose $locationName"`, falling back to plain `"Tagesprognose"` when
-  `UVForecast.locationName` is null (geocoding can fail).
-- Body: `"Max. X (Kategorie)."` where Kategorie is one of 4 distinct labels — niedrig/
-  mittel/hoch/sehr hoch — derived from `classifyUvRisk(dailyMax).germanLabel()`
-  (new extension in `UvRisk.kt`), replacing the old hand-rolled duplicate threshold
-  logic that didn't call `classifyUvRisk` at all.
-- Niedrig: nothing appended. Mittel: appends the shared Schutzempfehlung text (new
-  `UvProtectionRecommendations` object, `uv` package — plain Kotlin, no Android
-  dependency, so `NotificationDecider` stays pure/unit-testable). Hoch or sehr hoch
-  (both `isHigh()`): appends `"Zwischen X-Y Uhr direkte Sonne vermeiden."` where X/Y
-  are the first/last High UV Hour (+1) in `allDayForecasts` — per user's explicit
-  deviation from the issue's literal "X und Y" wording to a hyphenated "X-Y" form.
-- Removed `buildHighUVDescription`/`formatRanges`/`formatRange` — dead code once
-  `buildDailyContent` stopped using them.
-- Consistency cleanup (per user request during grilling): every hour mention in this
-  file (UV Warning's Prelude/InWindow bodies too) dropped `:00` minutes/leading
-  zeros — bare hour numbers throughout, not just in the new Daily content.
-
-**`UvRisk.kt`:** added `UvRisk.germanLabel()` (niedrig/mittel/hoch/sehr hoch),
-single source of truth for the category label, used by the notification.
-
-**New `uv/UvProtectionRecommendations.kt`:** `Moderate`/`High` string constants,
-now the single source for "Schutzempfehlung: ..." text — `InfoActivity.kt`'s two
-existing hardcoded copies (3-5/Mittel and 6+/Hoch-bis-sehr-hoch) were replaced with
-references to these constants so the Info screen and notification can't drift apart.
-
-**`WeatherRepository.kt` (user decision, expanded scope beyond the issue text):**
-UV index/temperature/wind speed were already rounded at parse time; extended the
-same treatment to **air quality** (`aqiResponse.current.europeanAqi.roundToInt()
-.toDouble()`) and **clear-sky values** (`calculateClearSkyHourly`'s per-hour
-result). Rounding happens once, at the API-parse boundary — `dailyMax`/
-`dailyMaxRemaining`/`clearSkyMax` are all derived downstream from already-rounded
-hourly values, so no separate rounding needed there. Deliberate tradeoff accepted
-by the user: classification boundaries (`classifyUvRisk`, the UV Warning's
-`isHigh()` gate, this issue's own sun-avoidance window) now operate on rounded
-rather than raw-float UV values — e.g. a raw 5.6 now classifies as High (6) where
-it previously classified as Moderate. Display-site `.toInt()` calls elsewhere in
-the app (UI, widgets, charts) needed no changes since their inputs are now already
-whole numbers.
-
-**`SettingsActivity.kt`:** updated the "Tagesbenachrichtigung" toggle's description
-text to describe the new content shape (was describing the old "Zeiträumen mit
-(sehr) hoher UV-Strahlung" wording).
-
-**`CONTEXT.md`:** updated the "Daily Forecast Notification" entry and added a note
-under "UV Forecast" documenting the round-once-at-parse-time invariant.
-
-**`NotificationDeciderTest.kt`:** added 8 tests — 6 for the new Daily content
-(location in title, null-location fallback, niedrig/mittel/hoch/sehr-hoch body
-text) and 2 asserting the UV Warning bodies now use bare-hour formatting with no
-":00".
-
-### Notes / not done
-- Pre-implementation: used `/grill-me` to resolve the design before writing code —
-  rework vs. new notification, category-label source (`classifyUvRisk` vs. ad hoc),
-  4-tier vs. collapsed labels (the issue's own example "(hoch)" for UV=7 settled
-  this in favor of 4 distinct labels), rounding scope and where it happens (at
-  ingestion vs. display-only — user chose ingestion, accepting the classification
-  shift), locationName null fallback, exact Mittel/Hoch wording, and the shared
-  Schutzempfehlung constant's home (plain Kotlin vs. `strings.xml`, chosen to keep
-  `NotificationDecider` Android-free).
-- The user's rounding request was scoped down from "the entire app" (21 `.toInt()`
-  call sites touching color-bucketing, temperature, wind speed, AQI, and chart
-  binning) to just UV/wind/AQI/clear-sky values rounded once at ingestion —
-  color-threshold bucketing, temperature, and chart data-point binning were left
-  untouched as out of scope for this issue.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 84 tests run, 84 passed (0 failures).
-- NotificationDeciderTest: 33/33 passed (25 pre-existing + 8 new)
-- All other suites unchanged and green (BackgroundLocationPermissionTest 5,
-  NotificationDispatcherTest 3, NotificationHistoryStoreTest 15, SkinTypeTest 8,
-  UvRiskTest 9, WindDirectionTest 11).
-`:app:assembleDebug` — BUILD SUCCESSFUL.
-
----
-
-## Issue #26 — Widget: Air quality index
-
-### Status: COMPLETE
-
-### What was implemented
-New 1x1 home-screen widget showing the current European AQI (EAQI), following the same
-pattern as the existing `WindWidget`/`SelfProtectionTimeWidget`/`UVWidgetMax` and using the
-already-cached `UVForecast.airQuality` field (wired up in #the AQI-card work, commit
-563b9f2) — no new data fetching needed.
-
-**New `app/src/main/res/layout/air_quality_widget.xml`:** same two-line vertical layout as
-`self_protection_time_widget.xml` — 12sp bold "Luft" header over a 22sp bold value, on the
-shared neutral `widget_max_background` drawable.
-
-**New `app/src/main/res/xml/air_quality_widget_info.xml`:** 1x1 (`40dp` min), same shape as
-the other 1x1 widget-info files.
-
-**New `com.uvindex.app.widget.AirQualityWidget`
-(`app/src/main/java/com/uvindex/app/widget/AirQualityWidget.kt`):** mirrors
-`SelfProtectionTimeWidget` minus its skin-type gating branch (AQI has no equivalent
-per-user precondition). Reads `forecast.airQuality` (`Double?`) from
-`WeatherRepository.getCachedForecastForWidget()` (cache-only, same as all other widgets).
-Non-null → big number (`aqi.toInt()`) tinted via `AQIColorHelper.getColorInt(aqi, context,
-FOREGROUND)` — reusing the in-app 6-level EAQI palette rather than inventing a separate
-hardcoded widget palette (a deliberate divergence from `UVColorHelper.getWidgetUVColor`'s
-precedent, per user decision during pre-implementation grilling). Null AQI (cache succeeded
-but the AQI fetch itself failed upstream) and full cache-fetch failure both fall back to the
-same "–" / `#999999` gray — no separate visual state, since the user can't act on the
-distinction. Click always opens `MainActivity` (no branching, unlike Self-Protection's
-Settings redirect for unset skin type).
-
-**`AndroidManifest.xml`:** registered `.widget.AirQualityWidget` as an exported receiver
-(`APPWIDGET_UPDATE` intent-filter + `air_quality_widget_info.xml` meta-data) so it appears
-in the widget picker.
-
-**`strings.xml`:** added `air_quality_widget_label` ("Luftqualität") and
-`air_quality_widget_description`.
-
-**`WidgetUpdateWorker.kt` (`updateAllWidgets`) and `util/WidgetUpdateHelper.kt`
-(`updateAllWidgets`):** both existing widget-broadcast fan-outs (worker-driven periodic
-refresh, and the general-purpose helper used elsewhere) now also broadcast
-`ACTION_APPWIDGET_UPDATE` to `AirQualityWidget` instances, each wrapped the same way as the
-other widgets so a missing widget doesn't fail the whole update pass.
-
-### Notes / not done
-- Pre-implementation: used `/grill-me` to resolve four open design branches with the user
-  before writing code — widget content (number only, no level label), color mechanism (reuse
-  `AQIColorHelper`'s in-app palette, text-only, no background tint — deviating from the
-  in-app card's background-tint behavior to stay consistent with the other widgets), null-AQI
-  fallback (same as fetch failure), and click target (unconditional, no Settings branch).
-- No new unit tests: same untestable-without-DI shape as `WindWidget`/`UVWidgetMax` (widget
-  provider only orchestrates RemoteViews calls and a cache-only repository read). Verified via
-  clean `compileDebugKotlin`, full green suite, and `assembleDebug`.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 76 tests run, 76 passed (0 failures). All 76
-pre-existing tests unchanged and green (no new tests added; behavior is widget-orchestration
-only). `:app:assembleDebug` — BUILD SUCCESSFUL.
-
----
-
-## Issue #27 — Notifications: Multiple fires
-
-### Status: COMPLETE
-
-### Root cause
-Reported symptom: two overlapping "high radiation" block notifications the same day, first
-"14:00-16:00" (2-4pm), then "15:00-17:00" (3-5pm). `NotificationDecider.worseNews()`
-(`NotificationDecider.kt`) re-fires the UV Warning same-day if any High UV Hour at/after `now`
-wasn't in the previously-warned `WarnedAbout.highHours` set. As the day progresses, the
-upstream forecast reclassifies the now-past hour 14 back below the High threshold (it drops
-out of `highHours`) while hour 16 newly crosses into High — the window didn't get longer, it
-just slid forward by one hour, but "hour 16 wasn't in the old set" was enough to count as
-Worse News and re-fire an effectively-duplicate notification.
-
-### What was implemented
-**`NotificationDecider.kt` (`worseNews`):** added a second condition alongside the existing
-"new high hour at/after now" check — the current `highHours` set must also be strictly larger
-than the previous one (`current.highHours.size > previous.highHours.size`). A pure same-length
-forward shift (one hour drops off the front, one appears on the back) no longer re-fires; a
-genuine extension (old hours retained, new ones added — window really got longer) still does,
-as does a higher peak or an earlier first-high-hour (unchanged, both already independent
-`worseNews` branches).
-
-**`CONTEXT.md` (Dedup Rules → Worse News):** updated the "new High UV Hour" bullet to spell
-out the size-growth requirement and cross-reference #27, so the doc matches the refined code.
-
-**`NotificationDeciderTest.kt`:** added 3 tests — `worseNews` false for a same-length forward
-shift, `worseNews` true when a shift also grows the window, and a `decide()`-level
-reproduction of the exact #27 scenario (14-15 → 15-16 at now=15) asserting no re-fire.
-
-### Notes / not done
-- Existing `worseNews`/`decide` tests for genuine extension, earlier start, higher peak, and
-  shrink were re-verified against the new size condition and still pass unchanged — the fix is
-  additive (narrows one branch), not a behavior rewrite.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 73 tests run, 73 passed (0 failures).
-- NotificationDeciderTest: 25/25 passed (22 pre-existing + 3 new)
-- All other suites unchanged and green.
-
----
-
-## Issue #23 — Simplify protection notice
-
-### Status: COMPLETE
-
-### What was implemented
-
-**`InfoActivity.kt` (`InfoScreen` composable):**
-- The two prose explanation blocks for elevated UV ranges were replaced with short,
-  UV-index-based recommendations in the "Schutzempfehlung: ..." format from the issue's
-  own example.
-- Range split changed from 3-7 / 8+ to 3-5 / 6+, matching the app's actual `UvRisk`
-  thresholds (`classifyUvRisk` in `UvRisk.kt`: None <3, Moderate 3-5, High 6-7,
-  VeryHigh 8+) so "medium" and "high or very high" line up with the risk levels used
-  elsewhere in the app (e.g. `NotificationDecider`).
-  - "3-5: Mittel" → "Schutzempfehlung: Sonnenbrille, Sonnencreme"
-  - "Ab 6: Hoch bis sehr hoch" → "Schutzempfehlung: Schatten, Sonnenbrille, Sonnencreme"
-- The 0-2 "Kein Schutz erforderlich" block and the general intro paragraph were left as-is
-  — they were already short and aren't a "protection recommendation" in the same sense.
-
-### Notes / not done
-- This is a static text screen (`InfoActivity`/`InfoScreen`), not unit-testable; verified via
-  a clean Kotlin compile and the full existing test suite (no regressions expected — no
-  production logic changed, text-only).
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all existing tests still pass (no new tests;
-change is UI text only).
-
----
-
-## Issue #22 — Skin type and self-protection time
-
-### Status: COMPLETE
-
-### What was implemented
-
-**New `com.uvindex.app.uv.SkinType`
-(`app/src/main/java/com/uvindex/app/uv/SkinType.kt`):**
-- Fitzpatrick I–VI enum with WHO/ICNIRP MED values (200/250/300/450/600/1000 J/m²).
-- `protectionMinutes(uvIndex)` — formula: `MED / (UV × 1.5)`, rounded to nearest 5 min,
-  minimum 5 min.
-- `formatProtectionTime(minutes)` — smart formatting: "25 min" / "1 h 05 min".
-
-**`DataStoreManager.kt`:**
-- Added `SKIN_TYPE_ORDINAL` int key, `saveSkinType(SkinType)`, and `getSkinType(): Flow<SkinType?>`.
-  Stored as enum ordinal in the existing `uv_index_prefs` DataStore.
-
-**`MainViewModel.kt`:**
-- Added `val skinType: StateFlow<SkinType?>` backed by `dataStoreManager.getSkinType()`
-  via `stateIn(Eagerly)` so the value is ready before the first composition.
-
-**`SettingsActivity.kt`:**
-- Added `companion object { const val EXTRA_HIGHLIGHT_SKIN_TYPE }`.
-- `highlightSkinType` boolean read from Intent extra and passed to `SettingsScreen`.
-- New "Hauttyp" section at the top of the settings screen: short description, then an
-  `ExposedDropdownMenuBox` with all 6 Fitzpatrick types (label + description per item).
-  Selected type persists immediately via `dataStoreManager.saveSkinType()`.
-- Pulsing highlight animation (`rememberInfiniteTransition`, alpha 0→0.18) on the skin
-  type section background when launched with `EXTRA_HIGHLIGHT_SKIN_TYPE = true`.
-- Settings column made scrollable (`verticalScroll`).
-
-**`UVIndexScreen.kt`:**
-- **Layout change**: ClearSkyUVCard removed. New layout:
-  ```
-  [ LocationTimeCard                          ]
-  [ CurrentUVCard      ] [ MaxUVCard          ]
-  [ SelfProtectionCard ] [ TemperatureCard    ]
-  ```
-- `CompactUVContent` now accepts `skinType: SkinType?` and `onOpenSettings: () -> Unit`.
-- `UVIndexScreen` collects `viewModel.skinType` and builds the `onOpenSettings` lambda
-  (starts `SettingsActivity` with `EXTRA_HIGHLIGHT_SKIN_TYPE = true`).
-- **New `SelfProtectionCard`** composable — three states:
-  - `skinType == null`: greyed card ("Hauttyp in Einstellungen wählen"), tappable → opens Settings.
-  - `currentUV < 1.0`: "Kein Risiko" + skin type label (card always visible, layout stable).
-  - Otherwise: formatted protection time + "Eigenschutzzeit" label + skin type label.
-  Once a skin type is set the card is non-interactive.
-- `ClearSkyUVCard` and `ClearSkyChartDialog` composables removed.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 65 tests run, 65 passed (0 failures).
-All 65 pre-existing tests unchanged and green.
-`:app:assembleDebug` — BUILD SUCCESSFUL.
-
----
-
-## Issue #21 — Widgets not updating after location change
-
-### Status: COMPLETE
-
-### Root cause
-Widgets carry no location of their own — they render whatever forecast is in the cache.
-The cache is refreshed by `WidgetUpdateWorker`, a *background* WorkManager job (scheduled in
-`UVIndexApplication` every 30 min, `WidgetUpdateScheduler` every 15 min, plus screen-unlock).
-That worker calls `WeatherRepository.getUVForecast()` → `LocationService.getCurrentLocation()`.
-The app declared **only foreground** location permissions (`ACCESS_COARSE/FINE_LOCATION`);
-there was no `ACCESS_BACKGROUND_LOCATION`. On Android 10+ a background process is denied
-location: the fresh fix returns null *and* the `lastLocation` fallback (#1) is restricted, so
-`getUVForecast()` fell back to the **stored coordinates = City A** and re-fetched City A
-indefinitely. Only a foreground fix (app open) succeeded — exactly matching the report
-("opening the app fixes it instantly; closing it updates the widgets immediately").
-
-There is no way to relocate widgets without opening the app unless the app holds
-`ACCESS_BACKGROUND_LOCATION` — an Android permission-model constraint, not a code bug.
-
-### What was implemented
-Chosen approach: add `ACCESS_BACKGROUND_LOCATION`, gated behind an explicit **opt-in toggle
-in Settings** with a prominent in-app disclosure (best Play-policy posture, lowest UX
-intrusion). Existing default behavior is unchanged for users who don't opt in.
-
-**`AndroidManifest.xml`:**
-- Added `<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />`
-  (auto-granted with foreground on API ≤28; runtime-gated on 29+).
-
-**New pure helper `com.uvindex.app.data.location.BackgroundLocationPermission`
-(`app/src/main/java/com/uvindex/app/data/location/BackgroundLocationPermission.kt`):**
-- `enum class BackgroundLocationStep { AlreadyGranted, RequestForegroundFirst,
-  RequestBackgroundInline, DirectToSystemSettings }`.
-- `fun nextBackgroundLocationStep(sdkInt, foregroundGranted, backgroundGranted)` — pure,
-  Android-free decision for the multi-step permission routing (background requires foreground
-  first; can only be requested via dialog on API 29; API 30+ must be granted in system
-  settings). Same extract-pure-logic-and-test-it pattern as `travelOctant` / `classifyUvRisk`.
-
-**`SettingsActivity.kt`:**
-- New "Standort" section with one Switch ("Automatische Standortaktualisierung"). The Switch
-  mirrors the **real** OS grant state, re-read on every `ON_RESUME` via `LifecycleEventEffect`
-  (the user may grant/revoke in system settings), not a stored bool.
-- Toggling on shows a disclosure `AlertDialog` first (Play "prominent disclosure"); on confirm
-  it calls `nextBackgroundLocationStep(...)` and routes: `RequestForegroundFirst` →
-  foreground-permission launcher (then continues); `RequestBackgroundInline` →
-  `ACCESS_BACKGROUND_LOCATION` launcher (API 29); `DirectToSystemSettings` → opens
-  `ACTION_APPLICATION_DETAILS_SETTINGS` for the package (API 30+ "Allow all the time").
-- Toggling off shows a short dialog and opens system settings (can't revoke programmatically).
-- Launchers wired via `rememberLauncherForActivityResult` inside the composable.
-
-**`strings.xml`:** added German strings for the section heading, toggle label/description,
-disclosure dialog (title/body/confirm/cancel), and the revoke dialog (title/body/open-settings).
-
-### Notes / not done
-- No change needed in `WidgetUpdateWorker`, `WeatherRepository`, or `LocationService`: once
-  `ACCESS_BACKGROUND_LOCATION` is granted, the worker's existing `getCurrentLocation()` call
-  returns a real fix and the existing `shouldFetchNewData` / day-change logic relocates the
-  cache on its own (subject to Doze throttling location to a few fixes/hour, fine for a 30-min
-  widget refresh). The stale stored-coords fallback stays as the offline last resort.
-- The Activity wiring (dialogs, launchers, system-settings routing) has no DI seam (same
-  constraint noted for `MainActivity`/widget code), so it is covered by compile + manual run,
-  not unit tests. The trickiest piece — the permission-step routing — is extracted into the
-  pure `nextBackgroundLocationStep` and unit-tested.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL. 65 tests run, 65 passed (0 failures).
-- BackgroundLocationPermissionTest: 5/5 passed (pure JVM, new: already-granted short-circuit,
-  foreground-missing, API ≤28 granted-by-foreground, API 29 inline, API 30+ direct-to-settings).
-- All 60 pre-existing tests unchanged and still green.
-`:app:assembleDebug` — BUILD SUCCESSFUL.
-
----
-
-## Issue #20 — Wind Widget (1x1) on the home screen
-
-### Status: COMPLETE
-
-### Parent
-#18 — Wind widget (1x1). This is Slice 2 of 2, built on top of #19's wind
-data path and `travelOctant` helper.
-
-### What was implemented
-
-**New base arrow drawable + 8 pre-rotated wrappers (`app/src/main/res/drawable/`):**
-- `ic_wind_arrow.xml` — single vector arrow shape pointing North (up), `fillColor="#333333"`
-  (matches the existing widget label text color, per the issue's tinting decision).
-- `ic_wind_arrow_n.xml` / `_ne` / `_e` / `_se` / `_s` / `_sw` / `_w` / `_nw.xml` — each a
-  `<rotate>` wrapper around `ic_wind_arrow` with `fromDegrees`/`toDegrees` set to the
-  octant's clockwise angle (N=0°, NE=45°, ..., NW=315°), `pivotX/Y=50%`. RemoteViews selects
-  one of these eight static drawables via `setImageViewResource` — no runtime `setRotation`,
-  as required (RemoteViews ImageViews don't support it reliably).
-
-**New layout `app/src/main/res/layout/wind_widget.xml`:**
-- 1x1 vertical `LinearLayout` (`wind_widget_container`, reuses `widget_max_background`):
-  `ImageView` (`wind_widget_arrow`, 24dp, defaults to `ic_wind_arrow_n`) above a `TextView`
-  (`wind_widget_speed`, "-- km/h", 12sp bold, `#333333`). No refresh button, no spinner —
-  matches the issue's "intentionally minimal" requirement.
-
-**New widget provider `app/src/main/java/com/uvindex/app/widget/WindWidget.kt`:**
-- `arrowDrawableFor(CompassOctant): Int` — exhaustive `when` mapping each of the 8
-  `CompassOctant` values (from #19's `com.uvindex.app.wind` package) to its pre-rotated
-  drawable resource.
-- `updateAppWidget()`: sets the whole-widget click to open `MainActivity` (same pattern as
-  `UVWidgetMax`), then on `Dispatchers.Main` calls
-  `WeatherRepository.getCachedForecastForWidget()` (cache-only, no location access, same as
-  other widgets). On success: reads `forecast.currentHour.windSpeed` /
-  `.windDirection`, computes `travelOctant(windDirection)`, sets the speed text to
-  `"<rounded speed> km/h"` and the arrow image via `arrowDrawableFor(octant)`. On failure or
-  exception: falls back to `"-- km/h"` and the North arrow.
-- `onUpdate` / `onReceive` follow the existing `AppWidgetProvider` pattern (only
-  `ACTION_APPWIDGET_UPDATE`, no custom refresh action — updates arrive via the scheduled
-  widget-update path).
-
-**New `app/src/main/res/xml/wind_widget_info.xml`:**
-- `appwidget-provider`: `minWidth/minHeight=40dp` (1x1 cell), `initialLayout=@layout/wind_widget`,
-  `updatePeriodMillis=1800000`, `resizeMode="horizontal|vertical"`, `widgetCategory="home_screen"`,
-  `description=@string/wind_widget_description`. Same shape as `uv_widget_max_info.xml`.
-
-**`AndroidManifest.xml`:**
-- Registered `.widget.WindWidget` as an exported receiver with an `APPWIDGET_UPDATE`
-  intent-filter and `android.appwidget.provider` meta-data pointing at `wind_widget_info.xml`
-  — makes it appear in the launcher's widget picker.
-
-**`strings.xml`:**
-- Added `wind_widget_description` ("Zeigt die aktuelle Windrichtung und -geschwindigkeit"),
-  used for both the widget picker description and the arrow `ImageView`'s
-  `contentDescription`.
-
-**`WidgetUpdateWorker.kt`:**
-- `updateAllWidgets()` now also broadcasts `ACTION_APPWIDGET_UPDATE` to `WindWidget`
-  instances (wrapped in try/catch like the `UVWidgetMax` block, so a missing widget doesn't
-  fail the worker) — the widget refreshes via the existing scheduled path, no per-widget
-  refresh button.
-
-### Notes / not done
-- No new unit tests: the widget provider only orchestrates RemoteViews calls and the
-  cache-read repository call (same untestable-without-DI shape as `UVWidgetMax`); the
-  underlying `travelOctant` octant math is already fully covered by `WindDirectionTest`
-  from #19. Verified via clean compile (`compileDebugKotlin`), full green suite
-  (`testDebugUnitTest`), and a successful `assembleDebug`.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all 60 existing tests still pass (no new tests
-added; behavior is widget-orchestration only). `:app:assembleDebug` — BUILD SUCCESSFUL.

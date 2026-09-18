@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.uvindex.app.notification.NotificationScheduler
 import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.util.WidgetUpdateHelper
 import kotlinx.coroutines.CoroutineScope

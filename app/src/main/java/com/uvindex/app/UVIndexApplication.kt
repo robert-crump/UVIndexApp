@@ -6,7 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.work.*
-import com.uvindex.app.widget.NotificationScheduler
+import com.uvindex.app.notification.NotificationScheduler
 import com.uvindex.app.widget.WidgetUpdateWorker
 import com.uvindex.app.worker.HourlyUpdateWorker
 import java.util.concurrent.TimeUnit

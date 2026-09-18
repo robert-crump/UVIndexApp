@@ -38,7 +38,7 @@ import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.ui.theme.UVIndexTheme
 import com.uvindex.app.util.WidgetUpdateHelper
 import com.uvindex.app.uv.SkinType
-import com.uvindex.app.widget.NotificationScheduler
+import com.uvindex.app.notification.NotificationScheduler
 import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {

@@ -1,4 +1,4 @@
-package com.uvindex.app.widget
+package com.uvindex.app.notification
 
 import android.content.Context
 import android.util.Log

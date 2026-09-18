@@ -107,7 +107,7 @@
         </receiver>
 
         <receiver
-            android:name=".worker.NotificationActionReceiver"
+            android:name=".notification.NotificationActionReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.uvindex.app.DISABLE_UV_WARNINGS" />

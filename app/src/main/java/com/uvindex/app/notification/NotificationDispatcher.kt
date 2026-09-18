@@ -13,7 +13,6 @@ import androidx.core.app.NotificationManagerCompat
 import com.uvindex.app.MainActivity
 import com.uvindex.app.R
 import com.uvindex.app.UVIndexApplication
-import com.uvindex.app.worker.NotificationActionReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

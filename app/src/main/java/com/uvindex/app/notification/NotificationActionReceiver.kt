@@ -1,4 +1,4 @@
-package com.uvindex.app.worker
+package com.uvindex.app.notification
 
 import android.content.BroadcastReceiver
 import android.content.Context
