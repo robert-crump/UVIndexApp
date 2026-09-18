@@ -1,13 +1,11 @@
 package com.uvindex.app.widget
 
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.uvindex.app.data.repository.WeatherRepository
+import com.uvindex.app.util.WidgetUpdateHelper
 
 class WidgetUpdateWorker(
     context: Context,
@@ -32,7 +30,7 @@ class WidgetUpdateWorker(
                 onSuccess = {
                     Log.d(TAG, "Data refreshed successfully")
                     // Update widgets with the new data
-                    updateAllWidgets()
+                    WidgetUpdateHelper.updateAllWidgets(applicationContext)
                     Result.success()
                 },
                 onFailure = { error ->
@@ -42,7 +40,7 @@ class WidgetUpdateWorker(
                         // On error with forceRefresh, fall back to cache
                         repository.getUVForecast(forceRefresh = false).fold(
                             onSuccess = {
-                                updateAllWidgets()
+                                WidgetUpdateHelper.updateAllWidgets(applicationContext)
                                 Result.success()
                             },
                             onFailure = {
@@ -58,82 +56,5 @@ class WidgetUpdateWorker(
             Log.e(TAG, "Exception in WidgetUpdateWorker", e)
             Result.retry()
         }
-    }
-
-    private fun updateAllWidgets() {
-        val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
-
-        // Update 4x1 Widget (UVWidget)
-        val uvWidgetIntent = Intent(applicationContext, UVWidget::class.java).apply {
-            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-        }
-        val uvWidgetIds = appWidgetManager.getAppWidgetIds(
-            ComponentName(applicationContext, UVWidget::class.java)
-        )
-        uvWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, uvWidgetIds)
-        applicationContext.sendBroadcast(uvWidgetIntent)
-        Log.d(TAG, "UVWidget updated (${uvWidgetIds.size} instances)")
-
-        // Update 1x1 Current UV Widget (falls vorhanden)
-        try {
-            val currentWidgetIntent = Intent(applicationContext, UVWidgetCurrent::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            }
-            val currentWidgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(applicationContext, UVWidgetCurrent::class.java)
-            )
-            currentWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, currentWidgetIds)
-            applicationContext.sendBroadcast(currentWidgetIntent)
-            Log.d(TAG, "UVWidgetCurrent updated (${currentWidgetIds.size} instances)")
-        } catch (e: Exception) {
-            Log.w(TAG, "UVWidgetCurrent not found or update failed: ${e.message}")
-        }
-
-        // Update 1x1 Wind Widget (falls vorhanden)
-        try {
-            val windWidgetIntent = Intent(applicationContext, WindWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            }
-            val windWidgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(applicationContext, WindWidget::class.java)
-            )
-            windWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, windWidgetIds)
-            applicationContext.sendBroadcast(windWidgetIntent)
-            Log.d(TAG, "WindWidget updated (${windWidgetIds.size} instances)")
-        } catch (e: Exception) {
-            Log.w(TAG, "WindWidget not found or update failed: ${e.message}")
-        }
-
-        // Update 1x1 Self-protection Time Widget (falls vorhanden)
-        try {
-            val selfProtectionWidgetIntent = Intent(applicationContext, SelfProtectionTimeWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            }
-            val selfProtectionWidgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(applicationContext, SelfProtectionTimeWidget::class.java)
-            )
-            selfProtectionWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, selfProtectionWidgetIds)
-            applicationContext.sendBroadcast(selfProtectionWidgetIntent)
-            Log.d(TAG, "SelfProtectionTimeWidget updated (${selfProtectionWidgetIds.size} instances)")
-        } catch (e: Exception) {
-            Log.w(TAG, "SelfProtectionTimeWidget not found or update failed: ${e.message}")
-        }
-
-        // Update 1x1 Air Quality Widget (falls vorhanden)
-        try {
-            val airQualityWidgetIntent = Intent(applicationContext, AirQualityWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            }
-            val airQualityWidgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(applicationContext, AirQualityWidget::class.java)
-            )
-            airQualityWidgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, airQualityWidgetIds)
-            applicationContext.sendBroadcast(airQualityWidgetIntent)
-            Log.d(TAG, "AirQualityWidget updated (${airQualityWidgetIds.size} instances)")
-        } catch (e: Exception) {
-            Log.w(TAG, "AirQualityWidget not found or update failed: ${e.message}")
-        }
-
-        Log.d(TAG, "All widgets updated")
     }
 }

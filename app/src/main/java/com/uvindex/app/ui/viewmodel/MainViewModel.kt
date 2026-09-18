@@ -75,12 +75,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = UVUiState.Success(forecast)
                     _isRefreshing.value = false
 
-                    // Update widgets after a successful data fetch with a short delay
+                    // Update widgets after a successful data fetch. No delay needed: the
+                    // repository's DataStore.edit() call suspends until the cache write is
+                    // persisted, so by the time onSuccess runs here the cache is durable.
                     if (forceRefresh) {
-                        viewModelScope.launch {
-                            kotlinx.coroutines.delay(500) // 500ms delay to allow cache to be written
-                            updateWidgets()
-                        }
+                        updateWidgets()
                     }
                 },
                 onFailure = { error ->

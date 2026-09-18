@@ -4,9 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
 import com.uvindex.app.notification.NotificationScheduler
 import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.util.WidgetUpdateHelper
@@ -26,20 +23,12 @@ class ScreenUnlockReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             Intent.ACTION_USER_PRESENT -> {
-                // Screen was unlocked
+                // Screen was unlocked. Push the cache straight to the widgets - no need to
+                // also enqueue WidgetUpdateWorker, since getCachedForecast() already
+                // re-parses with the current time on every read, so this alone is enough
+                // to show up-to-date values without a network round trip.
                 Log.d(TAG, "Screen unlocked - triggering immediate widget update")
-
-                // Trigger immediate widget update (uses cache with reparse)
-                // This updates widgets directly without waiting for the worker
                 WidgetUpdateHelper.updateAllWidgets(context)
-
-                // Also enqueue a widget update worker for background refresh
-                val workRequest = OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
-                    .setInputData(workDataOf("force_refresh" to false))
-                    .build()
-                WorkManager.getInstance(context).enqueue(workRequest)
-
-                Log.d(TAG, "Widgets updated immediately and background worker enqueued")
             }
             Intent.ACTION_BOOT_COMPLETED -> {
                 // Device was rebooted
