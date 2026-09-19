@@ -3,7 +3,6 @@ package com.uvindex.app
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -16,7 +15,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import com.uvindex.app.permission.AppPermissions
+import com.uvindex.app.permission.PermissionRequest
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.uvindex.app.ui.screen.UVIndexScreen
 import com.uvindex.app.ui.theme.UVIndexTheme
@@ -38,21 +38,9 @@ class MainActivity : ComponentActivity() {
 
     private val locationPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        // Check if at least one location permission was granted
-        val hasLocation = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) ||
-                permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
-
-        // After location permission → request notification permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (!hasNotificationPermission()) {
-                notificationPermissionRequest.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                updatePermissionsState()
-            }
-        } else {
-            updatePermissionsState()
-        }
+    ) { _ ->
+        // Whatever the outcome, continue to the next missing permission (notifications).
+        requestNextPermission()
     }
 
     private val notificationPermissionRequest = registerForActivityResult(
@@ -177,53 +165,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkAndRequestPermissions() {
-        // Location permission (COARSE only for fast API startup)
-        if (!hasLocationPermission()) {
-            locationPermissionRequest.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
+    private fun checkAndRequestPermissions() = requestNextPermission()
+
+    private fun requestNextPermission() {
+        when (AppPermissions.nextToRequest(this)) {
+            // COARSE only for fast API startup
+            PermissionRequest.Location -> locationPermissionRequest.launch(
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION)
             )
-        } else {
-            // Notification permission (Android 13+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                if (!hasNotificationPermission()) {
-                    notificationPermissionRequest.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    updatePermissionsState()
-                }
-            } else {
-                updatePermissionsState()
-            }
+            PermissionRequest.Notification ->
+                notificationPermissionRequest.launch(Manifest.permission.POST_NOTIFICATIONS)
+            PermissionRequest.None -> updatePermissionsState()
         }
     }
 
-    private fun hasAllPermissions(): Boolean {
-        return hasLocationPermission() && hasNotificationPermission()
-    }
-
-    private fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun hasNotificationPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-    }
+    private fun hasAllPermissions(): Boolean =
+        AppPermissions.hasLocation(this) && AppPermissions.hasNotifications(this)
 
     override fun onResume() {
         super.onResume()

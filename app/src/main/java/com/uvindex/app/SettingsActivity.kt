@@ -34,6 +34,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.uvindex.app.data.local.DataStoreManager
 import com.uvindex.app.data.location.BackgroundLocationStep
 import com.uvindex.app.data.location.nextBackgroundLocationStep
+import com.uvindex.app.permission.AppPermissions
+import com.uvindex.app.permission.isLocationGranted
 import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.ui.theme.UVIndexTheme
 import com.uvindex.app.util.WidgetUpdateHelper
@@ -116,11 +118,7 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
     // --- Background location opt-in (Issue #21) -------------------------------------------
     // The Switch mirrors the real OS grant state (the user may grant/revoke in system
     // settings), re-read every time the screen resumes rather than stored as a bool.
-    fun foregroundLocationGranted(): Boolean =
-        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
+    fun foregroundLocationGranted(): Boolean = AppPermissions.hasLocation(context)
 
     fun backgroundLocationGranted(): Boolean =
         if (Build.VERSION.SDK_INT <= 28) {
@@ -156,9 +154,7 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
     val foregroundLocationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) {
+        if (isLocationGranted(result)) {
             // Foreground just granted — continue to the appropriate background step.
             when (nextBackgroundLocationStep(
                 Build.VERSION.SDK_INT, foregroundGranted = true, backgroundGranted = false

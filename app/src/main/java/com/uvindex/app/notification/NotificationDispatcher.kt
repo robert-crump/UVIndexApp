@@ -1,18 +1,16 @@
 package com.uvindex.app.notification
 
-import android.Manifest
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.util.Log
-import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.uvindex.app.MainActivity
 import com.uvindex.app.R
 import com.uvindex.app.UVIndexApplication
+import com.uvindex.app.permission.AppPermissions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -28,7 +26,7 @@ class NotificationDispatcher(private val context: Context) {
      * permission is missing or the system rejects the call.
      */
     suspend fun send(decision: NotificationDecision): Boolean = withContext(Dispatchers.IO) {
-        if (!hasNotificationPermission()) {
+        if (!AppPermissions.hasNotifications(context)) {
             Log.w(TAG, "POST_NOTIFICATIONS permission missing — skipping ${decision.channel}")
             return@withContext false
         }
@@ -83,11 +81,6 @@ class NotificationDispatcher(private val context: Context) {
 
         return builder.build()
     }
-
-    private fun hasNotificationPermission(): Boolean =
-        ActivityCompat.checkSelfPermission(
-            context, Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
 
     companion object {
         private const val TAG = "NotificationDispatcher"

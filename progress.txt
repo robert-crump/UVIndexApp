@@ -1,3 +1,18 @@
+## 2026-09-19 — Issue #34: Permissions — one permission-state module, fix coarse/fine result bug
+
+### Status: COMPLETE (manual fresh-install test still to be done on device)
+
+### What was implemented
+- New `permission/AppPermissions.kt`: pure `isLocationGranted(resultMap)`, `notificationPermissionRequired(sdk)`,
+  `nextPermissionToRequest(sdk, locationGranted, notificationGranted)`; thin `AppPermissions` object
+  (`hasLocation`, `hasNotifications`, `nextToRequest`) is the only place reading `checkSelfPermission`
+  for these two permissions.
+- MainActivity, SettingsActivity, LocationService, NotificationDispatcher now call it. Removed the duplicated checks.
+- MainActivity bug fix: the initial location result no longer reads the never-requested fine key; it always
+  proceeds via `requestNextPermission()`, so a coarse-only grant continues to the notification request.
+- Tests: `AppPermissionsTest` (coarse-only, fine-only, both, none, SDK 33 vs 32 notification branch).
+  `testDebugUnitTest` passes.
+
 ## 2026-09-19 — Issue #33: UV category — all colors, drawables and labels map over UvRisk
 
 ### Status: COMPLETE
@@ -192,71 +207,3 @@ directory path under `app/src/main/java` — zero mismatches remain.
 moved classes).
 
 ---
-
-## 2026-08-01 — 4x1 UV widget: divider + "UV-Index | City" footer
-
-### Status: COMPLETE
-
-### What was implemented
-Pre-implementation: used `/grill-me` to resolve the design before writing code — where
-the extra vertical space comes from (shrink the top UV-cell row, raise the widget's
-declared `minHeight` from 40dp to 64dp, rather than cramping into the existing budget or
-overlaying), who owns the widget's rounded corners once the footer becomes the new
-bottom edge (moved from the top row's left/right cells to the footer's bottom-left/
-bottom-right, so the pill shape's curve now starts at the divider), the footer's exact
-gray (#9E9E9E, chosen over a near-white gray for better contrast with white text against
-the rest of the widget's near-black cell backgrounds), the divider's style (1dp,
-semi-transparent white `#33FFFFFF`), text alignment (centered), localization (German
-"UV-Index | %1$s", matching the app's existing German-only strings, not the English
-wording used mid-conversation), the null-city fallback (bare "UV-Index", no "Standort"
-suffix), padding (4dp top/bottom, 8dp horizontal, as padding on the footer view itself —
-not margin, which would've left gaps breaking the pill shape), font weight (regular,
-matching the time captions rather than the bold UV numbers), long-city-name handling
-(`maxLines="1"` + `ellipsize="end"`), and whether the static widget-picker preview layout
-should get the same treatment (yes).
-
-**`uv_widget.xml`:** the UV-cell row's height changed from `match_parent` to `0dp` +
-`layout_weight="1"` so it yields space to the new footer. Added a 1dp full-width `View`
-divider below it, then a new `widget_uv_footer` `TextView` (10sp, regular weight, white,
-centered, `maxLines="1"`/`ellipsize="end"`, XML-default text
-`@string/widget_uv_footer_no_city` so the failure/exception path — which never touches
-this view — still shows a sane fallback).
-
-**New drawable `widget_uv_footer_background.xml`:** solid `@color/widget_uv_footer_background`
-with only the bottom corners rounded 16dp, matching the existing radius used by the
-per-cell drawables.
-
-**All 10 `widget_row_bg_{error,low,moderate,high,very_high}_{left,right}.xml`:** zeroed
-out `bottomLeftRadius`/`bottomRightRadius` (previously 16dp on the outer side) now that
-the footer, not the cell row, forms the widget's bottom edge.
-
-**`colors.xml`:** added `widget_uv_footer_background` (#9E9E9E).
-
-**`strings.xml`:** added `widget_uv_footer_with_city` ("UV-Index | %1$s") and
-`widget_uv_footer_no_city` ("UV-Index").
-
-**`uv_widget_info.xml`:** `minHeight` 40dp → 64dp.
-
-**`UVWidget.kt`:** on the success path, binds `widget_uv_footer` from
-`forecast.locationName` (a field that already flowed through the widget's cached-forecast
-pipeline but was previously unused by this widget) via the new format string, falling
-back to the no-city string when null.
-
-**`uv_widget_preview.xml`:** same divider/footer structure added to the static
-widget-picker preview, with a hardcoded sample "UV-Index | Berlin".
-
-### Notes / not done
-- No new unit tests: purely `RemoteViews`/layout/drawable changes, same
-  untestable-without-DI shape as every other widget change in this codebase.
-- No GitHub issue for this one — came directly out of a `/grill-me` session, not a
-  tracked issue.
-- Existing widget instances already placed on a home screen keep their current size;
-  the raised `minHeight` only affects new placements/resizes.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all existing tests still pass (no new
-tests; widget-layout/orchestration-only change). `:app:assembleDebug` — BUILD
-SUCCESSFUL.
-
----
-
