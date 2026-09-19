@@ -1,3 +1,15 @@
+## 2026-09-19 — Issue #37: Fetch policy — one pure predicate owned by the repository, CacheManager deleted
+
+### Status: COMPLETE
+
+### What was implemented
+- New `data/repository/FetchPolicy.kt`: `CACHE_TTL` (3 h), `MOVE_THRESHOLD_KM` (15), `CacheMetadata` and pure
+  `shouldFetch(cache, currentLat, currentLon, now)` (no cache, not today, TTL, moved; null location skips move check).
+- New `data/location/Distance.kt`: pure `haversineDistanceKm`; removed `LocationService.calculateDistance`.
+- `WeatherRepository` is the only caller; new `isCacheStale()` replaces the hourly worker's private CacheManager.
+  Deleted `CacheManager`. README and KDoc now say 15 km / 3 h.
+- Tests: `FetchPolicyTest` (six cases), `DistanceTest`. `testDebugUnitTest` passes.
+
 ## 2026-09-19 — Issue #36: Background schedule — one module owns every WorkManager schedule
 
 ### Status: COMPLETE (manual `dumpsys jobscheduler` check for one periodic job per worker still to be done on device)
@@ -60,79 +72,3 @@
 - `SelfProtectionTimeWidget` and `UVIndexScreen` self-protection card use `isNoUvRisk`; literals removed.
 - Tests: label and no-risk predicate at boundaries 0,1,2,3,5,6,7,8. `testDebugUnitTest` passes; the acceptance grep
   only matches `UvRisk.kt`.
-
-## 2026-09-18 — Issue #32: Widgets — one widget host with a single refresh-all entry point
-
-### Status: COMPLETE
-
-### What was implemented
-Consolidated the "refresh every placed widget" fan-out, which had been implemented
-twice, into the one place `WidgetUpdateHelper.updateAllWidgets()` already claimed to
-be, and fixed the resulting double-refresh on screen unlock.
-
-**`widget/WidgetUpdateWorker.kt`:** deleted the inlined 75-line private `updateAllWidgets()`
-copy (five separate per-class try/catch blocks building `Intent`s and broadcasting them).
-Both call sites (success path, and the force-refresh-then-fallback-to-cache path) now call
-`WidgetUpdateHelper.updateAllWidgets(applicationContext)` instead.
-
-**`widget/ScreenUnlockReceiver.kt`:** the `ACTION_USER_PRESENT` branch called
-`WidgetUpdateHelper.updateAllWidgets()` directly *and* enqueued `WidgetUpdateWorker`, which
-fanned out a second time — the double-refresh-on-unlock the issue called out. Removed the
-worker enqueue; the direct helper call alone is sufficient because
-`WeatherRepository.getCachedForecast()` already re-parses the cache against the current time
-on every read (confirmed by reading `reParseWithCurrentTime`), so there's no network/reparse
-benefit the worker was adding here. Dropped the now-unused `OneTimeWorkRequestBuilder`/
-`WorkManager`/`workDataOf` imports.
-
-**`ui/viewmodel/MainViewModel.kt`:** removed the 500ms `delay()` hack before
-`updateWidgets()` in the pull-to-refresh path. Traced the ordering guarantee it was
-guessing at: `WeatherRepository.fetchWithCoordinates()` calls
-`DataStoreManager.saveCachedWeatherData()`, which is `context.dataStore.edit { ... }` — a
-suspend call that persists the write before returning. Since `loadForecast()`'s
-`onSuccess` only fires after that full chain completes, the cache is already durable by
-the time widgets would read it; the delay was guarding against a race that can't occur.
-
-**Trigger-site inventory (all now reach `WidgetUpdateHelper.updateAllWidgets()`, directly
-or by enqueuing `WidgetUpdateWorker`, never both):**
-1. App start — `MainActivity.onCreate` → `WidgetUpdateScheduler.triggerImmediateUpdate`
-2. App resume — `MainActivity.onResume` → `WidgetUpdateScheduler.triggerImmediateUpdate`
-3. Screen unlock — `ScreenUnlockReceiver` (`ACTION_USER_PRESENT`) → helper directly (worker
-   enqueue removed, see above)
-4. Boot — `ScreenUnlockReceiver` (`ACTION_BOOT_COMPLETED`) →
-   `WidgetUpdateScheduler.schedulePeriodicUpdates` + `triggerImmediateUpdate`
-5. Skin-type change — `SettingsActivity` dropdown `onClick` → helper directly
-6. Pull-to-refresh — `MainViewModel.loadForecast` → helper directly (no more delay)
-7. 4x1 widget refresh broadcast — `UVWidget.onReceive(ACTION_REFRESH)` → helper directly
-8. Hourly worker — `HourlyUpdateWorker.doWork` → helper directly
-9. Widget worker — `WidgetUpdateWorker.doWork` → helper directly (inlined copy deleted)
-10. Three WorkManager schedules that enqueue `WidgetUpdateWorker`, which then reaches the
-    helper: `WidgetUpdateScheduler.schedulePeriodicUpdates` (15 min), its
-    `scheduleMidnightUpdate` (once at 00:01), and `UVIndexApplication.scheduleWidgetUpdates`
-    (a separate 30 min periodic registration under its own unique work name, unchanged by
-    this slice — it was already worker-only, never double-firing)
-
-**`test/util/WidgetUpdateHelperTest.kt` (new):** Robolectric test placing one widget
-instance per provider class (`UVWidget`, `UVWidgetCurrent`, `WindWidget`,
-`SelfProtectionTimeWidget`, `AirQualityWidget`) via `ShadowAppWidgetManager.createWidget`,
-calling `updateAllWidgets()`, then asserting each provider received an
-`ACTION_APPWIDGET_UPDATE` broadcast carrying exactly its own placed id.
-
-### Notes / not done
-- No manual on-device test of "screen unlock refreshes once" (no device/emulator in this
-  environment). Verified by code inspection instead: the `ACTION_USER_PRESENT` branch now
-  contains exactly one call that can reach a widget provider.
-- Did not touch `UVIndexApplication.scheduleWidgetUpdates` (the 30 min periodic schedule
-  under a different unique work name than `WidgetUpdateScheduler`'s 15 min one) — it already
-  only enqueues the worker, so it doesn't double-fire, and deduplicating the *scheduling*
-  itself (as opposed to the fan-out logic) is a different problem than the one this issue
-  scoped.
-- Did not move `WidgetUpdateHelper` out of the `util` package into `widget` — the issue's
-  acceptance criteria only requires one function/one call graph, not a package move, and the
-  file already has established imports from six call sites.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL, 85 tests run (84 pre-existing + 1 new), 0
-failures. `:app:assembleDebug` — BUILD SUCCESSFUL.
-
----
-

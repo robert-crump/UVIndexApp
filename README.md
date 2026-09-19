@@ -21,7 +21,7 @@ Eine Android-App zur Überwachung des UV-Index am aktuellen Standort – mit Wid
 
 **Standort & Caching**
 - Ungefährer Standort (COARSE_LOCATION) für Akku-Schonung
-- Wetterdaten-Cache (3 Stunden), Update nur bei Standortwechsel > 20 km
+- Wetterdaten-Cache (3 Stunden), Update nur bei Standortwechsel > 15 km
 - Offline-Modus mit gecachten Daten
 
 ## Screenshots

@@ -8,7 +8,6 @@ import com.uvindex.app.data.location.LocationService
 import com.uvindex.app.data.model.CachedWeatherData
 import com.uvindex.app.data.model.HourlyForecast
 import com.uvindex.app.data.model.UVForecast
-import com.uvindex.app.util.CacheManager
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
@@ -30,17 +29,14 @@ class WeatherRepository(context: Context) {
     private val api = RetrofitClient.api
     private val dataStore = DataStoreManager(context)
     private val locationService = LocationService(context)
-    private val cacheManager = CacheManager(dataStore, locationService)
     private val json = Json { ignoreUnknownKeys = true }
-
-    private val CACHE_VALIDITY_HOURS = 3
 
     /**
      * Fetches UV forecast from cache or API.
      *
      * Cache logic:
-     * - Uses cache if < 3 hours old AND location has not changed by > 20km
-     * - Makes API call if cache is > 3 hours old OR location is > 20km away
+     * - Uses cache unless [shouldFetch] says otherwise: cache older than [CACHE_TTL] (3 hours),
+     *   location moved more than [MOVE_THRESHOLD_KM] (15 km), or cache not from today
      * - forceRefresh = true bypasses cache and always fetches fresh data
      *
      * This reduces API calls and makes optimal use of cached data.
@@ -170,16 +166,28 @@ class WeatherRepository(context: Context) {
         }
     }
 
-    private suspend fun shouldFetchNewData(currentLat: Double, currentLon: Double, now: LocalDateTime): Boolean {
-        // Use CacheManager for location- and time-based validation
-        val needsRefresh = cacheManager.shouldRefresh(
-            currentLat = currentLat,
-            currentLon = currentLon,
-            maxAgeHours = CACHE_VALIDITY_HOURS,
-            checkLocation = true
-        )
-        // Cache with no rows for today derives to null, which also means "fetch"
-        return needsRefresh || getCachedForecast(now) == null
+    /** True when the cache alone (no current location) says a network read is due. */
+    suspend fun isCacheStale(): Boolean = shouldFetchNewData(null, null, LocalDateTime.now())
+
+    private suspend fun shouldFetchNewData(currentLat: Double?, currentLon: Double?, now: LocalDateTime): Boolean {
+        val cache = readCache()?.let {
+            val rowDate = it.rows.firstOrNull()?.let { row ->
+                LocalDateTime.parse(row.time, DateTimeFormatter.ISO_DATE_TIME).toLocalDate()
+            }
+            rowDate?.let { date -> CacheMetadata(fetchedAt(it.timestamp), it.latitude, it.longitude, date) }
+        }
+        return shouldFetch(cache, currentLat, currentLon, now)
+    }
+
+    private suspend fun readCache(): CachedWeatherData? {
+        val cachedJson = dataStore.getCachedWeatherData().first() ?: return null
+        return try {
+            json.decodeFromString<CachedWeatherData>(cachedJson)
+        } catch (e: Exception) {
+            // Includes caches written by older builds (missing fields): treated as a miss
+            Log.e(TAG, "readCache: failed to parse cached data: ${e.message}", e)
+            null
+        }
     }
 
     private suspend fun getCachedForecast(now: LocalDateTime): UVForecast? {

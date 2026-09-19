@@ -4,13 +4,10 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.uvindex.app.data.local.DataStoreManager
-import com.uvindex.app.data.location.LocationService
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.notification.NotificationDecider
 import com.uvindex.app.notification.NotificationDispatcher
 import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
-import com.uvindex.app.util.CacheManager
 import com.uvindex.app.util.WidgetUpdateHelper
 import java.time.ZonedDateTime
 
@@ -36,7 +33,7 @@ class HourlyUpdateWorker(
 
             val shouldFetchNew = when {
                 currentHour in 6..17 && currentMinute == 0 -> true
-                currentHour !in 6..17 && currentMinute == 0 -> shouldFetchByTime()
+                currentHour !in 6..17 && currentMinute == 0 -> repository.isCacheStale()
                 else -> false
             }
 
@@ -71,12 +68,5 @@ class HourlyUpdateWorker(
             Log.e(TAG, "Worker exception", e)
             Result.failure()
         }
-    }
-
-    private suspend fun shouldFetchByTime(): Boolean {
-        val dataStore = DataStoreManager(applicationContext)
-        val locationService = LocationService(applicationContext)
-        val cacheManager = CacheManager(dataStore, locationService)
-        return cacheManager.isStale(maxAgeHours = 3)
     }
 }
