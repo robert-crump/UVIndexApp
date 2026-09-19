@@ -25,6 +25,7 @@ import com.uvindex.app.ui.theme.UVIndexTheme
 import com.uvindex.app.ui.viewmodel.MainViewModel
 import androidx.core.view.WindowCompat
 import com.uvindex.app.schedule.BackgroundSchedule
+import com.uvindex.app.util.WidgetUpdateHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -183,7 +184,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // Widget update on app return (with reparse)
-        BackgroundSchedule.refreshWidgetsNow(this, forceRefresh = false)
+        WidgetUpdateHelper.updateAllWidgets(this)
     }
 }
 

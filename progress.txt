@@ -1,3 +1,19 @@
+## 2026-09-19 — Issue #39: Background schedule — single tick worker replaces three workers
+
+### Status: COMPLETE (manual one-morning check of a single 06:30 daily notification still to be done on device)
+
+### What was implemented
+- New `worker/TickWorker.kt`: the only `CoroutineWorker`. Per tick: `fetchIntentFor(now)`, repository forecast,
+  `NotificationDecider.decide`, dispatch + record, then `WidgetUpdateHelper.updateAllWidgets`.
+- New `schedule/FetchIntent.kt`: pure `fetchIntentFor(LocalTime)` (minute 0 in 6..17 -> Fresh, minute 0 otherwise ->
+  FreshIfStale, else Cached); `FetchIntentTest`.
+- Deleted `DailyUVCheckWorker`, `HourlyUpdateWorker`, `WidgetUpdateWorker`. `BackgroundSchedule.ensureScheduled` now
+  registers only the 30 min periodic tick and the midnight one-shot, and cancels the four legacy work names.
+  Removed `refreshWidgetsNow`; onResume and boot push the cache via `WidgetUpdateHelper.updateAllWidgets`.
+- Settings daily toggle only writes the flag (no scheduling).
+- Decider morning window is now `LocalTime` 06:30 (inclusive) to 12:00 (exclusive); tests added for 06:29, 06:30,
+  11:59, 12:00. `testDebugUnitTest` passes.
+
 ## 2026-09-19 — Issue #38: 1x1 current-UV widget becomes a pure binder (tracer bullet)
 
 ### Status: COMPLETE (manual on-device check of value, color, tap still to be done)
@@ -56,19 +72,3 @@
   `lastUpdateTime` comes from the fetch timestamp.
 - Tests: `UVForecastDerivationTest` (match, fallback, end of day, cap of 3, tie -> earliest, previous day -> null).
   `testDebugUnitTest` passes.
-
-## 2026-09-19 — Issue #34: Permissions — one permission-state module, fix coarse/fine result bug
-
-### Status: COMPLETE (manual fresh-install test still to be done on device)
-
-### What was implemented
-- New `permission/AppPermissions.kt`: pure `isLocationGranted(resultMap)`, `notificationPermissionRequired(sdk)`,
-  `nextPermissionToRequest(sdk, locationGranted, notificationGranted)`; thin `AppPermissions` object
-  (`hasLocation`, `hasNotifications`, `nextToRequest`) is the only place reading `checkSelfPermission`
-  for these two permissions.
-- MainActivity, SettingsActivity, LocationService, NotificationDispatcher now call it. Removed the duplicated checks.
-- MainActivity bug fix: the initial location result no longer reads the never-requested fine key; it always
-  proceeds via `requestNextPermission()`, so a coarse-only grant continues to the notification request.
-- Tests: `AppPermissionsTest` (coarse-only, fine-only, both, none, SDK 33 vs 32 notification branch).
-  `testDebugUnitTest` passes.
-

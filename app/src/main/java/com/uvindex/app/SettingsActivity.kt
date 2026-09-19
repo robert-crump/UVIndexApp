@@ -319,7 +319,6 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                         dailyNotificationEnabled = enabled
                         coroutineScope.launch {
                             historyStore.setDailyEnabled(enabled)
-                            BackgroundSchedule.ensureScheduled(context)
                         }
                     },
                     colors = SwitchDefaults.colors(

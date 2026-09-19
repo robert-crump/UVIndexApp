@@ -145,6 +145,32 @@ class NotificationDeciderTest {
         assertTrue("Expected no decisions outside morning window", result.isEmpty())
     }
 
+    @Test
+    fun `decide emits no Daily decision at 06_29`() {
+        val result = NotificationDecider.decide(
+            morningNow.withHour(6).withMinute(29), fakeForecast(), historyWith(lastDailySent = null),
+        )
+        assertTrue("Expected no Daily decision before 06:30", result.isEmpty())
+    }
+
+    @Test
+    fun `decide emits a Daily decision at 06_30`() {
+        val result = NotificationDecider.decide(
+            morningNow.withHour(6).withMinute(30), fakeForecast(), historyWith(lastDailySent = null),
+        )
+        assertEquals(1, result.size)
+        assertEquals(Channel.Daily, result[0].channel)
+    }
+
+    @Test
+    fun `decide emits a Daily decision at 11_59 but none at 12_00`() {
+        val history = historyWith(lastDailySent = null)
+        val at1159 = NotificationDecider.decide(morningNow.withHour(11).withMinute(59), fakeForecast(), history)
+        val at1200 = NotificationDecider.decide(morningNow.withHour(12).withMinute(0), fakeForecast(), history)
+        assertEquals(1, at1159.size)
+        assertTrue("Expected no Daily decision from 12:00", at1200.isEmpty())
+    }
+
     /** Forecast for Daily-content tests: dailyMax + allDayForecasts control the category/window math. */
     private fun dailyForecast(
         dailyMax: Double,

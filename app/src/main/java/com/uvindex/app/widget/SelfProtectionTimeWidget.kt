@@ -64,7 +64,7 @@ class SelfProtectionTimeWidget : AppWidgetProvider() {
 
                 val result = withContext(Dispatchers.IO) {
                     // Widgets use cache only (no location access needed)
-                    // WidgetUpdateWorker has already cached fresh data
+                    // TickWorker has already cached fresh data
                     repository.getCachedForecastForWidget()
                 }
 

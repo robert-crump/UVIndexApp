@@ -23,7 +23,7 @@ class ScreenUnlockReceiver : BroadcastReceiver() {
         when (intent.action) {
             Intent.ACTION_USER_PRESENT -> {
                 // Screen was unlocked. Push the cache straight to the widgets - no need to
-                // also enqueue WidgetUpdateWorker, since getCachedForecast() already
+                // also run a background tick, since getCachedForecast() already
                 // re-parses with the current time on every read, so this alone is enough
                 // to show up-to-date values without a network round trip.
                 Log.d(TAG, "Screen unlocked - triggering immediate widget update")
@@ -34,7 +34,7 @@ class ScreenUnlockReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Boot completed - scheduling periodic updates")
 
                 // Restore every schedule and refresh the widgets from cache
-                BackgroundSchedule.refreshWidgetsNow(context, forceRefresh = false)
+                WidgetUpdateHelper.updateAllWidgets(context)
                 val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
                     try {

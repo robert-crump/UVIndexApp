@@ -8,6 +8,7 @@ import com.uvindex.app.uv.germanLabel
 import com.uvindex.app.uv.isHigh
 import com.uvindex.app.uv.isVeryHigh
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZonedDateTime
 
 /**
@@ -16,8 +17,12 @@ import java.time.ZonedDateTime
  */
 object NotificationDecider {
 
-    /** Hour range in which the Daily Forecast Notification may fire. Generous to handle Doze delays. */
-    private val MORNING_WINDOW = 5..11
+    /**
+     * Window in which the Daily Forecast Notification may fire. Opens at 06:30 (CONTEXT.md → "Daily
+     * Forecast Notification": "around 6:30"); the generous upper bound handles Doze delays.
+     */
+    private val MORNING_WINDOW_START: LocalTime = LocalTime.of(6, 30)
+    private val MORNING_WINDOW_END: LocalTime = LocalTime.NOON
 
     /**
      * Evaluates [history] and [forecast] at [now] and returns the list of
@@ -37,7 +42,7 @@ object NotificationDecider {
     /**
      * Emits a [Channel.Daily] decision when:
      * - [NotificationHistory.dailyEnabled] is true
-     * - [now] is within [MORNING_WINDOW]
+     * - [now] is within [MORNING_WINDOW_START] (inclusive) to [MORNING_WINDOW_END] (exclusive)
      * - [NotificationHistory.lastDailySent] is not today (no re-fire even if forecast changes)
      * - a [forecast] is available
      *
@@ -50,7 +55,8 @@ object NotificationDecider {
     ): NotificationDecision? {
         if (!history.dailyEnabled) return null
         if (forecast == null) return null
-        if (now.hour !in MORNING_WINDOW) return null
+        val time = now.toLocalTime()
+        if (time < MORNING_WINDOW_START || time >= MORNING_WINDOW_END) return null
 
         val today = now.toLocalDate()
         if (history.lastDailySent == today) return null
