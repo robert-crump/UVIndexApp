@@ -15,7 +15,13 @@ import kotlinx.coroutines.flow.map
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "uv_index_prefs")
 
-class DataStoreManager(private val context: Context) {
+/** The persisted skin type; lets the settings view model be tested with a fake. */
+interface SkinTypeStore {
+    fun getSkinType(): Flow<SkinType?>
+    suspend fun saveSkinType(skinType: SkinType)
+}
+
+class DataStoreManager(private val context: Context) : SkinTypeStore {
     
     companion object {
         private val CACHED_WEATHER_DATA = stringPreferencesKey("cached_weather_data")
@@ -45,13 +51,13 @@ class DataStoreManager(private val context: Context) {
         }
     }
     
-    suspend fun saveSkinType(skinType: SkinType) {
+    override suspend fun saveSkinType(skinType: SkinType) {
         context.dataStore.edit { preferences ->
             preferences[SKIN_TYPE_ORDINAL] = skinType.ordinal
         }
     }
 
-    fun getSkinType(): Flow<SkinType?> {
+    override fun getSkinType(): Flow<SkinType?> {
         return context.dataStore.data.map { preferences ->
             val ordinal = preferences[SKIN_TYPE_ORDINAL] ?: return@map null
             SkinType.entries.getOrNull(ordinal)

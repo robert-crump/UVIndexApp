@@ -1,3 +1,17 @@
+## 2026-09-19 — Issue #42: Settings — view model owns user intent, screen is presentation only
+
+### Status: COMPLETE (manual on-device check still to be done: change skin type -> self-protection widget updates; toggle daily off/on -> no duplicate schedules)
+
+### What was implemented
+- New `ui/settings/SettingsViewModel.kt`: `SettingsUiState` (skin type, daily/UV Warning flags, background-location granted),
+  intents `setSkinType` (persist + widget refresh), `setDailyEnabled`, `setUvWarningEnabled`, `requestBackgroundLocation`,
+  `refreshPermissions`, permission-result callbacks. Steps only an Activity can do come out as `PermissionAction` events.
+- `SkinTypeStore` interface (implemented by `DataStoreManager`); `LocationPermissionState` + `AppPermissions.hasBackgroundLocation`
+  in the permission module. Daily toggle needs no schedule call: the tick worker reads the flag (#39).
+- `SettingsScreen` moved to `ui/settings/SettingsScreen.kt` (192 lines) with `SettingsSections.kt`; constructs no stores/schedulers.
+  `SettingsActivity` builds the VM via `SettingsViewModel.factory`.
+- `SettingsViewModelTest` with fake skin-type, history and permission stores. `testDebugUnitTest` and `assembleDebug` pass.
+
 ## 2026-09-19 — Issue #41: Widgets — remaining four widgets become pure binders, one placeholder and error color
 
 ### Status: COMPLETE (manual on-device check of all five widgets, and of the placeholder after clearing app storage, still to be done)
@@ -57,15 +71,3 @@
   re-dispatch; removed unused `ACTION_REFRESH_CURRENT`. Worker and unlock still go via `updateAllWidgets` broadcast,
   so the widget refreshes once per trigger. Other four providers unchanged.
 - Tests: `CurrentUvBinderTest` (UV 0/3/6/8, null forecast, tap target). `testDebugUnitTest` passes.
-
-## 2026-09-19 — Issue #37: Fetch policy — one pure predicate owned by the repository, CacheManager deleted
-
-### Status: COMPLETE
-
-### What was implemented
-- New `data/repository/FetchPolicy.kt`: `CACHE_TTL` (3 h), `MOVE_THRESHOLD_KM` (15), `CacheMetadata` and pure
-  `shouldFetch(cache, currentLat, currentLon, now)` (no cache, not today, TTL, moved; null location skips move check).
-- New `data/location/Distance.kt`: pure `haversineDistanceKm`; removed `LocationService.calculateDistance`.
-- `WeatherRepository` is the only caller; new `isCacheStale()` replaces the hourly worker's private CacheManager.
-  Deleted `CacheManager`. README and KDoc now say 15 km / 3 h.
-- Tests: `FetchPolicyTest` (six cases), `DistanceTest`. `testDebugUnitTest` passes.

@@ -35,8 +35,30 @@ fun nextPermissionToRequest(
     else -> PermissionRequest.None
 }
 
+/** The location grants the settings screen shows; an interface so the settings view model can use a fake. */
+interface LocationPermissionState {
+    fun hasForegroundLocation(): Boolean
+    fun hasBackgroundLocation(): Boolean
+}
+
 /** Thin Android edge: the single place that reads the OS permission state. */
 object AppPermissions {
+
+    /** ACCESS_BACKGROUND_LOCATION is a separate permission only on API 29+; before that a foreground grant covers it. */
+    fun hasBackgroundLocation(context: Context): Boolean =
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            hasLocation(context)
+        } else {
+            isGranted(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+
+    fun locationPermissionState(context: Context): LocationPermissionState {
+        val appContext = context.applicationContext
+        return object : LocationPermissionState {
+            override fun hasForegroundLocation() = hasLocation(appContext)
+            override fun hasBackgroundLocation() = hasBackgroundLocation(appContext)
+        }
+    }
 
     fun hasLocation(context: Context): Boolean =
         isGranted(context, Manifest.permission.ACCESS_COARSE_LOCATION) ||
