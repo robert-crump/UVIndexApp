@@ -60,7 +60,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.uvindex.app.widget.ACTION_REFRESH_CURRENT" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

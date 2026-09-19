@@ -1,3 +1,17 @@
+## 2026-09-19 — Issue #38: 1x1 current-UV widget becomes a pure binder (tracer bullet)
+
+### Status: COMPLETE (manual on-device check of value, color, tap still to be done)
+
+### What was implemented
+- New `widget/CurrentUvBinder.kt`: pure `bindCurrentUv(UVForecast?)` -> `CurrentUvBinding` (value text, time text,
+  `WidgetTone` Risk(UvRisk)/Neutral, `WidgetTapTarget`). No Context/RemoteViews.
+- New `widget/WidgetHost.kt`: loads the cached forecast once, applies the binding to RemoteViews (colors, background,
+  tap intent) and updates all placed widgets; `goAsync` variant for receivers.
+- `UVWidgetCurrent` is now a thin shell (only `onUpdate`); no repository, no coroutine scope, no `onReceive`
+  re-dispatch; removed unused `ACTION_REFRESH_CURRENT`. Worker and unlock still go via `updateAllWidgets` broadcast,
+  so the widget refreshes once per trigger. Other four providers unchanged.
+- Tests: `CurrentUvBinderTest` (UV 0/3/6/8, null forecast, tap target). `testDebugUnitTest` passes.
+
 ## 2026-09-19 — Issue #37: Fetch policy — one pure predicate owned by the repository, CacheManager deleted
 
 ### Status: COMPLETE
@@ -58,17 +72,3 @@
 - Tests: `AppPermissionsTest` (coarse-only, fine-only, both, none, SDK 33 vs 32 notification branch).
   `testDebugUnitTest` passes.
 
-## 2026-09-19 — Issue #33: UV category — all colors, drawables and labels map over UvRisk
-
-### Status: COMPLETE
-
-### What was implemented
-- `uv/UvRisk.kt`: added `isNoUvRisk(uvIndex)` (UV < 1) next to `isHigh`; `germanLabel()` is now the single
-  capitalized vocabulary ("Niedrig/Mittel/Hoch/Sehr hoch"); notification applies `.lowercase()` at the call site.
-- `UVColorHelper`: color lookup is a `when` over `UvRisk` (new `UvRisk` overload; `Double` overloads classify once
-  at the edge); `getCategoryText` delegates to `germanLabel()`.
-- `UVWidget` / `UVWidgetCurrent`: drawable lookups take `UvRisk`.
-- `InfoActivity`: band headings derived from `germanLabel()`; High (6-7) and Very High (8+) are separate.
-- `SelfProtectionTimeWidget` and `UVIndexScreen` self-protection card use `isNoUvRisk`; literals removed.
-- Tests: label and no-risk predicate at boundaries 0,1,2,3,5,6,7,8. `testDebugUnitTest` passes; the acceptance grep
-  only matches `UvRisk.kt`.
