@@ -15,6 +15,8 @@ import com.uvindex.app.R
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.ui.theme.UVColorHelper
 import com.uvindex.app.util.WidgetUpdateHelper
+import com.uvindex.app.uv.UvRisk
+import com.uvindex.app.uv.classifyUvRisk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,11 +31,11 @@ class UVWidget : AppWidgetProvider() {
         const val ACTION_REFRESH = "com.uvindex.app.widget.ACTION_REFRESH"
         private const val TAG = "UVWidget"
 
-        private fun endBackgroundRes(uvIndex: Int, isLeftEnd: Boolean): Int = when {
-            uvIndex <= 2 -> if (isLeftEnd) R.drawable.widget_row_bg_low_left else R.drawable.widget_row_bg_low_right
-            uvIndex <= 5 -> if (isLeftEnd) R.drawable.widget_row_bg_moderate_left else R.drawable.widget_row_bg_moderate_right
-            uvIndex <= 7 -> if (isLeftEnd) R.drawable.widget_row_bg_high_left else R.drawable.widget_row_bg_high_right
-            else -> if (isLeftEnd) R.drawable.widget_row_bg_very_high_left else R.drawable.widget_row_bg_very_high_right
+        private fun endBackgroundRes(risk: UvRisk, isLeftEnd: Boolean): Int = when (risk) {
+            UvRisk.None -> if (isLeftEnd) R.drawable.widget_row_bg_low_left else R.drawable.widget_row_bg_low_right
+            UvRisk.Moderate -> if (isLeftEnd) R.drawable.widget_row_bg_moderate_left else R.drawable.widget_row_bg_moderate_right
+            UvRisk.High -> if (isLeftEnd) R.drawable.widget_row_bg_high_left else R.drawable.widget_row_bg_high_right
+            UvRisk.VeryHigh -> if (isLeftEnd) R.drawable.widget_row_bg_very_high_left else R.drawable.widget_row_bg_very_high_right
         }
 
         private val CONTAINER_IDS = intArrayOf(R.id.widget_cell_0, R.id.widget_cell_1, R.id.widget_cell_2, R.id.widget_cell_3)
@@ -198,11 +200,11 @@ class UVWidget : AppWidgetProvider() {
                                     )
                                     views.setInt(
                                         R.id.widget_icon_column, "setBackgroundResource",
-                                        endBackgroundRes(uv, isLeftEnd = true)
+                                        endBackgroundRes(classifyUvRisk(uv.toDouble()), isLeftEnd = true)
                                     )
                                     views.setInt(R.id.widget_icon, "setColorFilter", fgColor)
                                 }
-                                3 -> views.setInt(containerId, "setBackgroundResource", endBackgroundRes(uv, isLeftEnd = false))
+                                3 -> views.setInt(containerId, "setBackgroundResource", endBackgroundRes(classifyUvRisk(uv.toDouble()), isLeftEnd = false))
                                 else -> views.setInt(
                                     containerId, "setBackgroundColor",
                                     UVColorHelper.getColorInt(uv.toDouble(), context, UVColorHelper.ColorType.BACKGROUND)

@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.uvindex.app.ui.theme.UVIndexTheme
 import com.uvindex.app.uv.UvProtectionRecommendations
+import com.uvindex.app.uv.UvRisk
+import com.uvindex.app.uv.germanLabel
 
 class InfoActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,7 +87,7 @@ fun InfoScreen(onBackClick: () -> Unit) {
 
             // TextView 2: Low (0-2)
             Text(
-                text = "0-2: Niedrig",
+                text = "0-2: ${UvRisk.None.germanLabel()}",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -98,7 +100,7 @@ fun InfoScreen(onBackClick: () -> Unit) {
 
             // TextView 3: Moderate (3-5)
             Text(
-                text = "3-5: Mittel",
+                text = "3-5: ${UvRisk.Moderate.germanLabel()}",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -109,9 +111,22 @@ fun InfoScreen(onBackClick: () -> Unit) {
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // TextView 4: High to very high (6+)
+            // TextView 4: High (6-7)
             Text(
-                text = "Ab 6: Hoch bis sehr hoch",
+                text = "6-7: ${UvRisk.High.germanLabel()}",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Schutzempfehlung: ${UvProtectionRecommendations.High}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // TextView 5: Very high (8+)
+            Text(
+                text = "Ab 8: ${UvRisk.VeryHigh.germanLabel()}",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary
             )

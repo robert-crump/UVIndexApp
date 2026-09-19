@@ -197,7 +197,7 @@ object NotificationDecider {
             risk.isHigh() -> sunAvoidanceSentence(forecast) + " Schutzempfehlung: ${UvProtectionRecommendations.High}."
             else -> ""
         }
-        return title to "Max. $maxUV (${risk.germanLabel()}).$extra"
+        return title to "Max. $maxUV (${risk.germanLabel().lowercase()}).$extra"
     }
 
     /**

@@ -66,4 +66,24 @@ class UvRiskTest {
         assertFalse(UvRisk.Moderate.isVeryHigh())
         assertFalse(UvRisk.None.isVeryHigh())
     }
+
+    // ── germanLabel / isNoUvRisk at band boundaries ──────────────────────────
+
+    @Test
+    fun `category label per band boundary`() {
+        val expected = mapOf(
+            0.0 to "Niedrig", 1.0 to "Niedrig", 2.0 to "Niedrig",
+            3.0 to "Mittel", 5.0 to "Mittel",
+            6.0 to "Hoch", 7.0 to "Hoch",
+            8.0 to "Sehr hoch"
+        )
+        expected.forEach { (uv, label) -> assertEquals("UV $uv", label, classifyUvRisk(uv).germanLabel()) }
+    }
+
+    @Test
+    fun `isNoUvRisk per band boundary`() {
+        assertTrue(isNoUvRisk(0.0))
+        assertTrue(isNoUvRisk(0.9))
+        listOf(1.0, 2.0, 3.0, 5.0, 6.0, 7.0, 8.0).forEach { assertFalse("UV $it", isNoUvRisk(it)) }
+    }
 }

@@ -1,3 +1,18 @@
+## 2026-09-19 — Issue #33: UV category — all colors, drawables and labels map over UvRisk
+
+### Status: COMPLETE
+
+### What was implemented
+- `uv/UvRisk.kt`: added `isNoUvRisk(uvIndex)` (UV < 1) next to `isHigh`; `germanLabel()` is now the single
+  capitalized vocabulary ("Niedrig/Mittel/Hoch/Sehr hoch"); notification applies `.lowercase()` at the call site.
+- `UVColorHelper`: color lookup is a `when` over `UvRisk` (new `UvRisk` overload; `Double` overloads classify once
+  at the edge); `getCategoryText` delegates to `germanLabel()`.
+- `UVWidget` / `UVWidgetCurrent`: drawable lookups take `UvRisk`.
+- `InfoActivity`: band headings derived from `germanLabel()`; High (6-7) and Very High (8+) are separate.
+- `SelfProtectionTimeWidget` and `UVIndexScreen` self-protection card use `isNoUvRisk`; literals removed.
+- Tests: label and no-risk predicate at boundaries 0,1,2,3,5,6,7,8. `testDebugUnitTest` passes; the acceptance grep
+  only matches `UvRisk.kt`.
+
 ## 2026-09-18 — Issue #32: Widgets — one widget host with a single refresh-all entry point
 
 ### Status: COMPLETE
@@ -245,65 +260,3 @@ SUCCESSFUL.
 
 ---
 
-## 2026-07-30 — Air Quality widget (1x1): match main-screen AQI colors, drop label
-
-### Status: COMPLETE
-
-### What was implemented
-Follow-up to the 2026-07-29 UV widget redesign below — same treatment applied to the
-1x1 `AirQualityWidget`, which had been deliberately left text-only/static-background
-during its original build (#26) "for consistency with the other widgets." That
-rationale went stale once the UV widgets moved to full background tinting, so this
-closes the gap. Pre-implementation: used `/grill-me` to resolve scope (1x1 only — no
-4x1 AQ widget exists, and there's no hourly AQI data to drive one), whether to
-override the prior text-only decision (yes), what replaces the dropped "Luft" label
-(nothing — bare number, unlike UV's 1x1 which kept a dynamic hour caption), number
-sizing given the extra empty space (enlarged 22sp → 36sp), the error-state resource
-(a new dedicated `widget_aqi_error_background`, not a reuse of UV's), and the
-background-selector's shape (switch on the existing `getAirQualityLevel(aqi)` enum
-rather than duplicating threshold numbers inline like the UV widgets do).
-
-**`air_quality_widget.xml`:** dropped the static "Luft" header `TextView` entirely.
-Root container's background changed from the static `widget_max_background` (white,
-gray border) to `widget_bg_aqi_error` as its XML default (swapped at runtime). The
-value `TextView` is now the only child, enlarged from 22sp to 36sp.
-
-**New drawables `widget_bg_aqi_{good,fair,moderate,poor,very_poor,extremely_poor,
-error}.xml`:** full-bleed rounded rects (24dp corners), same shape spec as the UV
-1x1's `widget_bg_{low,moderate,high,very_high,error}.xml`, one per
-`AirQualityLevel` bucket plus a dedicated error/no-data variant, colors pulled from
-the existing `aqi_*_background` entries in `colors.xml`.
-
-**`colors.xml`:** added `widget_aqi_error_background` (#3A3A3A) — a separate
-resource from UV's `widget_uv_error_background` (same color, kept independent per
-user decision rather than shared, since AQI and UV background sets are otherwise
-fully separate palettes).
-
-**`AirQualityWidget.kt`:** added `backgroundResFor(aqi: Double)`, a `when` over
-`getAirQualityLevel(aqi)` (the existing data-model enum `AQIColorHelper` already
-switches on) mapping each of the 6 levels to its new drawable — reusing that seam
-instead of re-deriving the 20/40/60/80/100 breakpoints locally, unlike the UV
-widgets' inline range checks. Both the success and failure/exception paths now also
-call `views.setInt(widget_air_quality_container, "setBackgroundResource", ...)`
-alongside the existing text/color updates.
-
-**`AndroidManifest.xml`:** removed the stray `android:label="@string/
-air_quality_widget_label"` from the `AirQualityWidget` receiver — the two UV widget
-receivers never set one, this was a leftover inconsistency from AQ's original build.
-
-**`strings.xml`:** removed the now-unused `air_quality_widget_label` string (only
-the manifest `android:label` referenced it; `air_quality_widget_description` is
-untouched and still used by the widget-info XML).
-
-### Notes / not done
-- No new unit tests: purely `RemoteViews`/layout/drawable changes, same
-  untestable-without-DI shape as every other widget in this codebase. Verified via
-  clean `compileDebugKotlin`, `assembleDebug`, and the full existing test suite.
-- No GitHub issue for this one — it came directly out of a `/grill-me` session on
-  adapting the UV rework's logic to Air Quality, not a tracked issue (the original
-  AQ widget issue, #26, was already closed).
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all pre-existing tests still pass (no
-new tests; widget-orchestration-only change). `:app:assembleDebug` — BUILD
-SUCCESSFUL.

@@ -13,6 +13,7 @@ import com.uvindex.app.SettingsActivity
 import com.uvindex.app.data.local.DataStoreManager
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.ui.theme.UVColorHelper
+import com.uvindex.app.uv.isNoUvRisk
 import com.uvindex.app.uv.protectionTimeCompact
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +25,6 @@ class SelfProtectionTimeWidget : AppWidgetProvider() {
 
     companion object {
         private const val TAG = "SelfProtectionTimeWidget"
-        private const val NO_RISK_UV_THRESHOLD = 1.0
         private val FAILURE_COLOR = parseColor("#999999")
     }
 
@@ -72,7 +72,7 @@ class SelfProtectionTimeWidget : AppWidgetProvider() {
                     onSuccess = { forecast ->
                         val currentUV = forecast.currentHour.uvIndex
 
-                        if (currentUV < NO_RISK_UV_THRESHOLD) {
+                        if (isNoUvRisk(currentUV)) {
                             views.setTextViewText(R.id.widget_self_protection_value, "–")
                             views.setTextColor(
                                 R.id.widget_self_protection_value,

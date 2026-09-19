@@ -24,6 +24,7 @@ import com.uvindex.app.data.model.UVForecast
 import com.uvindex.app.ui.viewmodel.MainViewModel
 import com.uvindex.app.ui.viewmodel.UVUiState
 import com.uvindex.app.ui.theme.UVColorHelper
+import com.uvindex.app.uv.isNoUvRisk
 import com.uvindex.app.ui.theme.AQIColorHelper
 import com.uvindex.app.ui.components.UVBarChart
 import com.uvindex.app.ui.components.TemperatureLineChart
@@ -502,7 +503,7 @@ fun SelfProtectionCard(
                 }
             }
         }
-        currentUV < 1.0 -> {
+        isNoUvRisk(currentUV) -> {
             Card(modifier = modifier) {
                 Box(
                     modifier = Modifier

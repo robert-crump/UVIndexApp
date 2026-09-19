@@ -12,6 +12,8 @@ import android.widget.RemoteViews
 import com.uvindex.app.R
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.ui.theme.UVColorHelper
+import com.uvindex.app.uv.UvRisk
+import com.uvindex.app.uv.classifyUvRisk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,11 +25,11 @@ class UVWidgetCurrent : AppWidgetProvider() {
         const val ACTION_REFRESH = "com.uvindex.app.widget.ACTION_REFRESH_CURRENT"
         private const val TAG = "UVWidgetCurrent"
 
-        private fun backgroundResFor(uvIndex: Int): Int = when {
-            uvIndex <= 2 -> R.drawable.widget_bg_low
-            uvIndex <= 5 -> R.drawable.widget_bg_moderate
-            uvIndex <= 7 -> R.drawable.widget_bg_high
-            else -> R.drawable.widget_bg_very_high
+        private fun backgroundResFor(risk: UvRisk): Int = when (risk) {
+            UvRisk.None -> R.drawable.widget_bg_low
+            UvRisk.Moderate -> R.drawable.widget_bg_moderate
+            UvRisk.High -> R.drawable.widget_bg_high
+            UvRisk.VeryHigh -> R.drawable.widget_bg_very_high
         }
     }
 
@@ -105,7 +107,7 @@ class UVWidgetCurrent : AppWidgetProvider() {
                         views.setTextViewText(R.id.widget_current_time, String.format("%02d:00", currentHourValue))
                         views.setTextColor(R.id.widget_current_uv_value, fgColor)
                         views.setTextColor(R.id.widget_current_time, fgColor)
-                        views.setInt(R.id.widget_current_container, "setBackgroundResource", backgroundResFor(currentUV))
+                        views.setInt(R.id.widget_current_container, "setBackgroundResource", backgroundResFor(classifyUvRisk(currentUV.toDouble())))
 
                         appWidgetManager.updateAppWidget(appWidgetId, views)
                     },
