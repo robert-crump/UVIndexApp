@@ -17,12 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.uvindex.app.permission.AppPermissions
 import com.uvindex.app.permission.PermissionRequest
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.uvindex.app.ui.screen.UVIndexScreen
 import com.uvindex.app.ui.theme.UVIndexTheme
 import com.uvindex.app.ui.viewmodel.MainViewModel
 import androidx.core.view.WindowCompat
-import com.uvindex.app.widget.WidgetUpdateScheduler
+import com.uvindex.app.schedule.BackgroundSchedule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -55,11 +57,7 @@ class MainActivity : ComponentActivity() {
         // Enable edge-to-edge for seamless display
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        // Schedule widget updates
-        WidgetUpdateScheduler.schedulePeriodicUpdates(this)
-
-        // Immediate update with reparse (no API request)
-        WidgetUpdateScheduler.triggerImmediateUpdate(this, forceRefresh = false)
+        lifecycleScope.launch { BackgroundSchedule.ensureScheduled(applicationContext) }
 
         setContent {
             UVIndexTheme {
@@ -185,7 +183,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // Widget update on app return (with reparse)
-        WidgetUpdateScheduler.triggerImmediateUpdate(this, forceRefresh = false)
+        BackgroundSchedule.refreshWidgetsNow(this, forceRefresh = false)
     }
 }
 
@@ -214,7 +212,7 @@ fun BatteryOptimizationDialog(
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
                 Text(
-                    text = "• Tägliche UV-Warnungen um 6:30 Uhr\n• Stündliche Benachrichtigungen bei hoher UV-Strahlung\n• Automatische Widget-Aktualisierungen",
+                    text = "• Tägliche UV-Warnungen um ${BackgroundSchedule.dailyNotificationTimeText} Uhr\n• Stündliche Benachrichtigungen bei hoher UV-Strahlung\n• Automatische Widget-Aktualisierungen",
                     style = MaterialTheme.typography.bodySmall
                 )
             }

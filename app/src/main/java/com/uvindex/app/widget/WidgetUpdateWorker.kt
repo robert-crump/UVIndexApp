@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.uvindex.app.data.repository.WeatherRepository
+import com.uvindex.app.schedule.BackgroundSchedule
 import com.uvindex.app.util.WidgetUpdateHelper
 
 class WidgetUpdateWorker(
@@ -21,7 +22,7 @@ class WidgetUpdateWorker(
             Log.d(TAG, "WidgetUpdateWorker started")
 
             // Get forceRefresh parameter (default: false for reparse)
-            val forceRefresh = inputData.getBoolean("force_refresh", false)
+            val forceRefresh = inputData.getBoolean(BackgroundSchedule.KEY_FORCE_REFRESH, false)
             Log.d(TAG, "Force refresh: $forceRefresh")
 
             // Hole neue Daten vom Repository

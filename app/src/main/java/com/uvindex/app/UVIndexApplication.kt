@@ -5,11 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
-import androidx.work.*
-import com.uvindex.app.notification.NotificationScheduler
-import com.uvindex.app.widget.WidgetUpdateWorker
-import com.uvindex.app.worker.HourlyUpdateWorker
-import java.util.concurrent.TimeUnit
+import com.uvindex.app.schedule.BackgroundSchedule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class UVIndexApplication : Application() {
 
@@ -22,15 +21,8 @@ class UVIndexApplication : Application() {
         super.onCreate()
 
         createNotificationChannel()
-        scheduleDailyNotifications()
-        scheduleHourlyUpdates()
-        scheduleWidgetUpdates()
+        CoroutineScope(Dispatchers.IO).launch { BackgroundSchedule.ensureScheduled(this@UVIndexApplication) }
         checkBatteryOptimization()
-    }
-
-    private fun scheduleDailyNotifications() {
-        NotificationScheduler.scheduleDailyNotification(this)
-        android.util.Log.d("UVIndexApplication", "Daily notifications scheduled via WorkManager")
     }
 
     private fun checkBatteryOptimization() {
@@ -60,45 +52,5 @@ class UVIndexApplication : Application() {
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
-    }
-
-    private fun scheduleHourlyUpdates() {
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(false)  // Also runs on low battery
-            .build()
-
-        // Worker runs every 30 minutes for precise timing (6:30 notification, hourly warnings)
-        // No network constraint so the worker also runs offline (falls back to cache)
-        val halfHourlyWorkRequest = PeriodicWorkRequestBuilder<HourlyUpdateWorker>(
-            30, TimeUnit.MINUTES
-        )
-            .setConstraints(constraints)
-            .setInitialDelay(1, TimeUnit.MINUTES)  // Start after 1 minute
-            .build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "hourly_uv_update",
-            ExistingPeriodicWorkPolicy.UPDATE,
-            halfHourlyWorkRequest
-        )
-    }
-
-    private fun scheduleWidgetUpdates() {
-        val constraints = Constraints.Builder()
-            .setRequiresBatteryNotLow(false)
-            .build()
-
-        val widgetWorkRequest = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(
-            30, TimeUnit.MINUTES
-        )
-            .setConstraints(constraints)
-            .setInitialDelay(2, TimeUnit.MINUTES)  // Start after 2 minutes
-            .build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "widget_update",
-            ExistingPeriodicWorkPolicy.UPDATE,
-            widgetWorkRequest
-        )
     }
 }

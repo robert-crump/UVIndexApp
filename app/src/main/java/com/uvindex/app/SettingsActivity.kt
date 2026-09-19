@@ -40,7 +40,7 @@ import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
 import com.uvindex.app.ui.theme.UVIndexTheme
 import com.uvindex.app.util.WidgetUpdateHelper
 import com.uvindex.app.uv.SkinType
-import com.uvindex.app.notification.NotificationScheduler
+import com.uvindex.app.schedule.BackgroundSchedule
 import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
@@ -307,7 +307,7 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Tägliche Benachrichtigung um 06:30 mit Tageshöchstwert und, je nach Kategorie, Schutzempfehlung oder Zeitraum zum Vermeiden direkter Sonne",
+                        text = "Tägliche Benachrichtigung um ${BackgroundSchedule.dailyNotificationTimeText} mit Tageshöchstwert und, je nach Kategorie, Schutzempfehlung oder Zeitraum zum Vermeiden direkter Sonne",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -317,9 +317,10 @@ fun SettingsScreen(onBackPressed: () -> Unit, highlightSkinType: Boolean = false
                     checked = dailyNotificationEnabled,
                     onCheckedChange = { enabled ->
                         dailyNotificationEnabled = enabled
-                        coroutineScope.launch { historyStore.setDailyEnabled(enabled) }
-                        if (enabled) NotificationScheduler.scheduleDailyNotification(context)
-                        else NotificationScheduler.cancelDailyNotification(context)
+                        coroutineScope.launch {
+                            historyStore.setDailyEnabled(enabled)
+                            BackgroundSchedule.ensureScheduled(context)
+                        }
                     },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.onPrimary,

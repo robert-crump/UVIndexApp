@@ -4,8 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.uvindex.app.notification.NotificationScheduler
-import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
+import com.uvindex.app.schedule.BackgroundSchedule
 import com.uvindex.app.util.WidgetUpdateHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,21 +33,12 @@ class ScreenUnlockReceiver : BroadcastReceiver() {
                 // Device was rebooted
                 Log.d(TAG, "Boot completed - scheduling periodic updates")
 
-                // Restore periodic updates
-                WidgetUpdateScheduler.schedulePeriodicUpdates(context)
-
-                // Trigger immediate update with reparse
-                WidgetUpdateScheduler.triggerImmediateUpdate(context, forceRefresh = false)
-
-                // Re-schedule daily UV notification if enabled
+                // Restore every schedule and refresh the widgets from cache
+                BackgroundSchedule.refreshWidgetsNow(context, forceRefresh = false)
                 val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        val dailyEnabled = SharedPreferencesNotificationHistoryStore(context).snapshot().dailyEnabled
-                        if (dailyEnabled) {
-                            NotificationScheduler.scheduleDailyNotification(context)
-                            Log.d(TAG, "Daily notification re-scheduled after boot")
-                        }
+                        BackgroundSchedule.ensureScheduled(context)
                     } finally {
                         pendingResult.finish()
                     }
