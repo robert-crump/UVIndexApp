@@ -28,7 +28,10 @@ data class HourlyForecast(
 
 @Serializable
 data class CachedWeatherData(
-    val forecast: UVForecast,
+    val rows: List<HourlyForecast>,
+    val locationName: String?,
+    val countryCode: String?,
+    val airQuality: Double?,
     val latitude: Double,
     val longitude: Double,
     val timestamp: Long

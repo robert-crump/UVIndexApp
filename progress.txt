@@ -1,3 +1,19 @@
+## 2026-09-19 — Issue #35: UV Forecast — one pure derivation from raw rows plus a clock value
+
+### Status: COMPLETE (manual main screen / 4x1 / 1x1 same-current-hour test still to be done on device)
+
+### What was implemented
+- New `data/model/UVForecastDerivation.kt`: `ForecastSnapshot` (raw rows + metadata + fetchedAt) and pure
+  `deriveUVForecast(snapshot, now: LocalDateTime): UVForecast?`. No Android imports, no clock reads.
+  Returns null when no rows are for today's date (cache miss).
+- `CachedWeatherData` now stores raw rows, location name, country code, air quality, coords, timestamp.
+  Old-format caches fail to decode and are treated as a miss.
+- `WeatherRepository`: removed `parseWeatherResponse` and `reParseWithCurrentTime`; `LocalDateTime.now()` is read
+  once per public entry point (`getUVForecast`, `getCachedForecastForWidget`) and passed down.
+  `lastUpdateTime` comes from the fetch timestamp.
+- Tests: `UVForecastDerivationTest` (match, fallback, end of day, cap of 3, tie -> earliest, previous day -> null).
+  `testDebugUnitTest` passes.
+
 ## 2026-09-19 — Issue #34: Permissions — one permission-state module, fix coarse/fine result bug
 
 ### Status: COMPLETE (manual fresh-install test still to be done on device)
@@ -159,51 +175,3 @@ changes, no new tests needed).
 
 ---
 
-## 2026-09-18 — Issue #30: Navigability — move files to match packages, notification classes into notification package
-
-### Status: COMPLETE
-
-### What was implemented
-Pure move/rename slice, no behavior change, per the issue's acceptance criteria.
-
-**Moved to match declared package (directory now matches `package` line):**
-- `WidgetUpdateScheduler.kt`: app root → `widget/` (already declared `com.uvindex.app.widget`).
-- `ScreenUnlockReceiver.kt`: app root → `widget/` (already declared `com.uvindex.app.widget`).
-
-**Moved into the notification domain, with package declaration updated to match:**
-- `NotificationActionReceiver.kt`: app root (`com.uvindex.app.worker`) → `notification/`
-  (`com.uvindex.app.notification`), alongside `NotificationDecider`, `NotificationDispatcher`,
-  `NotificationHistoryStore`.
-- `NotificationScheduler.kt`: `widget/` (`com.uvindex.app.widget`) → `notification/`
-  (`com.uvindex.app.notification`).
-
-**Import/reference fixups required by the two package changes:**
-- `AndroidManifest.xml`: `.worker.NotificationActionReceiver` → `.notification.NotificationActionReceiver`.
-- `MainActivity.kt`, `notification/NotificationDispatcher.kt`: updated
-  `NotificationActionReceiver` import (dropped entirely in `NotificationDispatcher.kt` since
-  it's now same-package).
-- `SettingsActivity.kt`, `UVIndexApplication.kt`: updated `NotificationScheduler` import from
-  `com.uvindex.app.widget` to `com.uvindex.app.notification`.
-- `widget/ScreenUnlockReceiver.kt`: added a new `import com.uvindex.app.notification.
-  NotificationScheduler` — it calls `NotificationScheduler.scheduleDailyNotification` on boot,
-  which was same-package before `NotificationScheduler` moved out of `widget`.
-- `widget/WidgetUpdateScheduler.kt`'s own package didn't change, so its one external
-  reference (`MainActivity.kt`'s `import com.uvindex.app.widget.WidgetUpdateScheduler`)
-  needed no edit.
-
-Verified with a script comparing every `.kt` file's `package` declaration against its
-directory path under `app/src/main/java` — zero mismatches remain.
-
-### Notes / not done
-- No wildcard imports introduced; no logic changed in any moved file — diff is moves plus
-  package/import lines only (confirmed via `git diff --stat`: 7 files touched outside the
-  4 renames, 6 lines total changed).
-- No test files referenced any of the four moved classes, so no test changes were needed
-  beyond the package/import fixups already covered above.
-
-### Test results
-`:app:testDebugUnitTest` — BUILD SUCCESSFUL, all existing tests still pass, no test changes.
-`:app:assembleDebug` — BUILD SUCCESSFUL (confirms manifest receiver entries resolve to the
-moved classes).
-
----
