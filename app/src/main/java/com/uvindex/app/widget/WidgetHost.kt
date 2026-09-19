@@ -12,6 +12,7 @@ import android.widget.RemoteViews
 import com.uvindex.app.MainActivity
 import com.uvindex.app.R
 import com.uvindex.app.data.model.UVForecast
+import com.uvindex.app.data.repository.FetchIntent
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.ui.theme.UVColorHelper
 import com.uvindex.app.uv.UvRisk
@@ -53,7 +54,7 @@ object WidgetHost {
 
     private suspend fun loadCachedForecast(context: Context): UVForecast? =
         try {
-            WeatherRepository(context).getCachedForecastForWidget().getOrNull()
+            WeatherRepository(context).getUVForecast(FetchIntent.CachedOnly).getOrNull()
         } catch (e: Exception) {
             Log.e(TAG, "Loading cached forecast failed", e)
             null

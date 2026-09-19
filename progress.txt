@@ -1,3 +1,17 @@
+## 2026-09-19 — Issue #40: Fetch policy — callers state fetch intent only
+
+### Status: COMPLETE (manual check still to be done: reopen within TTL -> cache read in log; move 20 km -> network fetch)
+
+### What was implemented
+- New `data/repository/FetchIntent.kt` (Fresh, FreshIfStale, CachedOnly). `WeatherRepository.getUVForecast(intent)` is the
+  only read API; `forceRefresh`, `getCachedForecastForWidget` and `isCacheStale` are gone. CachedOnly never touches
+  network or location.
+- `schedule/FetchIntentRule.kt`: pure `fetchIntentFor(LocalTime)` -> Fresh at minute 0 of 06..17, else FreshIfStale;
+  `FetchIntentTest` covers 05:59, 06:00, 17:00, 18:00, minute 0 vs 30.
+- `TickWorker` passes the intent straight through. `MainViewModel`: FreshIfStale on initial load and resume, Fresh on
+  pull-to-refresh; five-minute timer removed. Widget providers use CachedOnly; widget refresh button uses Fresh.
+- `testDebugUnitTest` passes.
+
 ## 2026-09-19 — Issue #39: Background schedule — single tick worker replaces three workers
 
 ### Status: COMPLETE (manual one-morning check of a single 06:30 daily notification still to be done on device)
@@ -57,18 +71,3 @@
   does not use the one-shot entry point.
 - Acceptance grep only matches `BackgroundSchedule.kt`. `testDebugUnitTest` passes.
 
-## 2026-09-19 — Issue #35: UV Forecast — one pure derivation from raw rows plus a clock value
-
-### Status: COMPLETE (manual main screen / 4x1 / 1x1 same-current-hour test still to be done on device)
-
-### What was implemented
-- New `data/model/UVForecastDerivation.kt`: `ForecastSnapshot` (raw rows + metadata + fetchedAt) and pure
-  `deriveUVForecast(snapshot, now: LocalDateTime): UVForecast?`. No Android imports, no clock reads.
-  Returns null when no rows are for today's date (cache miss).
-- `CachedWeatherData` now stores raw rows, location name, country code, air quality, coords, timestamp.
-  Old-format caches fail to decode and are treated as a miss.
-- `WeatherRepository`: removed `parseWeatherResponse` and `reParseWithCurrentTime`; `LocalDateTime.now()` is read
-  once per public entry point (`getUVForecast`, `getCachedForecastForWidget`) and passed down.
-  `lastUpdateTime` comes from the fetch timestamp.
-- Tests: `UVForecastDerivationTest` (match, fallback, end of day, cap of 3, tie -> earliest, previous day -> null).
-  `testDebugUnitTest` passes.

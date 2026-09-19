@@ -12,6 +12,7 @@ import android.widget.RemoteViews
 import com.uvindex.app.R
 import com.uvindex.app.data.model.AirQualityLevel
 import com.uvindex.app.data.model.getAirQualityLevel
+import com.uvindex.app.data.repository.FetchIntent
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.ui.theme.AQIColorHelper
 import kotlinx.coroutines.CoroutineScope
@@ -82,7 +83,7 @@ class AirQualityWidget : AppWidgetProvider() {
                 val result = withContext(Dispatchers.IO) {
                     // Widgets use cache only (no location access needed)
                     // TickWorker has already cached fresh data
-                    repository.getCachedForecastForWidget()
+                    repository.getUVForecast(FetchIntent.CachedOnly)
                 }
 
                 result.fold(

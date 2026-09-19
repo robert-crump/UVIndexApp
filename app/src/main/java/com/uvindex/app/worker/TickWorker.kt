@@ -8,7 +8,6 @@ import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.notification.NotificationDecider
 import com.uvindex.app.notification.NotificationDispatcher
 import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
-import com.uvindex.app.schedule.FetchIntent
 import com.uvindex.app.schedule.fetchIntentFor
 import com.uvindex.app.util.WidgetUpdateHelper
 import java.time.ZonedDateTime
@@ -27,13 +26,7 @@ class TickWorker(
         return try {
             val now = ZonedDateTime.now()
             val repository = WeatherRepository(applicationContext)
-            val forceRefresh = when (fetchIntentFor(now.toLocalTime())) {
-                FetchIntent.Fresh -> true
-                FetchIntent.FreshIfStale -> repository.isCacheStale()
-                FetchIntent.Cached -> false
-            }
-
-            val forecastResult = repository.getUVForecast(forceRefresh = forceRefresh)
+            val forecastResult = repository.getUVForecast(fetchIntentFor(now.toLocalTime()))
             val forecast = forecastResult.getOrNull()
             if (forecast == null) {
                 Log.e(TAG, "Failed to get forecast: ${forecastResult.exceptionOrNull()?.message}")

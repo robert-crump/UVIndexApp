@@ -12,6 +12,7 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
 import com.uvindex.app.R
+import com.uvindex.app.data.repository.FetchIntent
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.ui.theme.UVColorHelper
 import com.uvindex.app.util.WidgetUpdateHelper
@@ -71,7 +72,7 @@ class UVWidget : AppWidgetProvider() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val repository = WeatherRepository(context)
-                    repository.getUVForecast(forceRefresh = true).fold(
+                    repository.getUVForecast(FetchIntent.Fresh).fold(
                         onSuccess = {
                             Log.d(TAG, "Data refreshed successfully")
                             WidgetUpdateHelper.updateAllWidgets(context)
@@ -155,7 +156,7 @@ class UVWidget : AppWidgetProvider() {
             try {
                 val repository = WeatherRepository(context)
                 val result = withContext(Dispatchers.IO) {
-                    repository.getCachedForecastForWidget()
+                    repository.getUVForecast(FetchIntent.CachedOnly)
                 }
 
                 result.fold(

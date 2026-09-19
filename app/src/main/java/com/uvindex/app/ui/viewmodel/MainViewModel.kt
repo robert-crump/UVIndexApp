@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.uvindex.app.data.local.DataStoreManager
 import com.uvindex.app.data.model.UVForecast
+import com.uvindex.app.data.repository.FetchIntent
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.util.WidgetUpdateHelper
 import com.uvindex.app.uv.SkinType
@@ -30,47 +31,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private var hasLoadedInitially = false
-    private var lastLoadTime = 0L
 
     fun startInitialLoad() {
         if (!hasLoadedInitially) {
             hasLoadedInitially = true
-            loadForecast(forceRefresh = false)
+            loadForecast(FetchIntent.FreshIfStale)
         }
     }
 
     /**
      * Called when the app returns to the foreground.
-     * Reloads data if it is stale (> 5 minutes old).
+     * The repository decides whether the cache is stale.
      */
     fun onResume() {
         if (!hasLoadedInitially) return
-
-        val now = System.currentTimeMillis()
-        val minutesSinceLastLoad = (now - lastLoadTime) / (1000 * 60)
-
-        // If more than 5 minutes since last load → refresh
-        if (minutesSinceLastLoad >= 5) {
-            loadForecast(forceRefresh = false)
-        }
+        loadForecast(FetchIntent.FreshIfStale)
     }
 
-    fun loadForecast(forceRefresh: Boolean = false) {
+    fun loadForecast(intent: FetchIntent) {
         viewModelScope.launch {
             // Prevent concurrent calls (race condition)
             if (_isRefreshing.value) return@launch
 
             // Set refreshing state
             _isRefreshing.value = true
-            lastLoadTime = System.currentTimeMillis()
 
             // Show loading only when no data exists yet or explicitly requested
             val hasData = _uiState.value is UVUiState.Success
-            if (forceRefresh || !hasData) {
+            if (intent == FetchIntent.Fresh || !hasData) {
                 _uiState.value = UVUiState.Loading
             }
 
-            repository.getUVForecast(forceRefresh).fold(
+            repository.getUVForecast(intent).fold(
                 onSuccess = { forecast ->
                     _uiState.value = UVUiState.Success(forecast)
                     _isRefreshing.value = false
@@ -78,7 +70,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     // Update widgets after a successful data fetch. No delay needed: the
                     // repository's DataStore.edit() call suspends until the cache write is
                     // persisted, so by the time onSuccess runs here the cache is durable.
-                    if (forceRefresh) {
+                    if (intent == FetchIntent.Fresh) {
                         updateWidgets()
                     }
                 },

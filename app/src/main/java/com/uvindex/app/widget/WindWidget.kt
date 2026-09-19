@@ -9,6 +9,7 @@ import android.content.Intent
 import android.util.Log
 import android.widget.RemoteViews
 import com.uvindex.app.R
+import com.uvindex.app.data.repository.FetchIntent
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.wind.CompassOctant
 import com.uvindex.app.wind.travelOctant
@@ -80,7 +81,7 @@ class WindWidget : AppWidgetProvider() {
             try {
                 val repository = WeatherRepository(context)
                 val result = withContext(Dispatchers.IO) {
-                    repository.getCachedForecastForWidget()
+                    repository.getUVForecast(FetchIntent.CachedOnly)
                 }
 
                 result.fold(

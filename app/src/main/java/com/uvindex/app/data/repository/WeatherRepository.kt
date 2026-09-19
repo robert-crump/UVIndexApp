@@ -32,18 +32,18 @@ class WeatherRepository(context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * Fetches UV forecast from cache or API.
+     * Reads the UV forecast according to [intent]; the repository alone decides whether that
+     * means a network call.
      *
-     * Cache logic:
-     * - Uses cache unless [shouldFetch] says otherwise: cache older than [CACHE_TTL] (3 hours),
-     *   location moved more than [MOVE_THRESHOLD_KM] (15 km), or cache not from today
-     * - forceRefresh = true bypasses cache and always fetches fresh data
-     *
-     * This reduces API calls and makes optimal use of cached data.
+     * - [FetchIntent.Fresh]: always fetch, falling back to cache on failure
+     * - [FetchIntent.FreshIfStale]: fetch only if [shouldFetch] says so (cache older than
+     *   [CACHE_TTL], location moved more than [MOVE_THRESHOLD_KM], or cache not from today)
+     * - [FetchIntent.CachedOnly]: cache only, never touches network or location
      */
-    suspend fun getUVForecast(forceRefresh: Boolean = false): Result<UVForecast> {
-        Log.d(TAG, "getUVForecast called (forceRefresh=$forceRefresh)")
+    suspend fun getUVForecast(intent: FetchIntent): Result<UVForecast> {
+        Log.d(TAG, "getUVForecast called (intent=$intent)")
         val now = LocalDateTime.now()
+        if (intent == FetchIntent.CachedOnly) return cachedOnly(now)
         return try {
             Log.d(TAG, "Requesting current location...")
             val currentLocation = locationService.getCurrentLocation()
@@ -65,13 +65,12 @@ class WeatherRepository(context: Context) {
             }
             Log.d(TAG, "Location obtained: lat=${currentLocation.latitude}, lon=${currentLocation.longitude}")
 
-            // Check cache age and location change (except when forceRefresh is true)
-            val shouldFetchNew = forceRefresh || shouldFetchNewData(
+            val shouldFetchNew = intent == FetchIntent.Fresh || shouldFetchNewData(
                 currentLocation.latitude,
                 currentLocation.longitude,
                 now
             )
-            Log.d(TAG, "shouldFetchNew=$shouldFetchNew (forceRefresh=$forceRefresh)")
+            Log.d(TAG, "shouldFetchNew=$shouldFetchNew (intent=$intent)")
 
             if (!shouldFetchNew) {
                 val cached = getCachedForecast(now)
@@ -145,29 +144,18 @@ class WeatherRepository(context: Context) {
         return Result.success(forecast)
     }
 
-    /**
-     * Fetches cached UV forecast without accessing location.
-     * Ideal for widgets running in the background.
-     */
-    suspend fun getCachedForecastForWidget(): Result<UVForecast> {
-        val now = LocalDateTime.now()
-        Log.d(TAG, "getCachedForecastForWidget called")
-        return try {
-            val cached = getCachedForecast(now)
-            if (cached != null) {
-                Log.d(TAG, "Widget cache hit: location=${cached.locationName}, currentHourUV=${cached.currentHour.uvIndex}, dailyMax=${cached.dailyMax}")
-                Result.success(cached)
-            } else {
-                Log.w(TAG, "Widget cache miss: no cached data available")
-                Result.failure(Exception("Keine gecachten Daten verfügbar"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+    private suspend fun cachedOnly(now: LocalDateTime): Result<UVForecast> = try {
+        val cached = getCachedForecast(now)
+        if (cached != null) {
+            Log.d(TAG, "Cache hit: location=${cached.locationName}, currentHourUV=${cached.currentHour.uvIndex}, dailyMax=${cached.dailyMax}")
+            Result.success(cached)
+        } else {
+            Log.w(TAG, "Cache miss: no cached data available")
+            Result.failure(Exception("Keine gecachten Daten verfügbar"))
         }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
-
-    /** True when the cache alone (no current location) says a network read is due. */
-    suspend fun isCacheStale(): Boolean = shouldFetchNewData(null, null, LocalDateTime.now())
 
     private suspend fun shouldFetchNewData(currentLat: Double?, currentLon: Double?, now: LocalDateTime): Boolean {
         val cache = readCache()?.let {

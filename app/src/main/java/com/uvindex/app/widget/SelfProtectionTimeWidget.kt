@@ -11,6 +11,7 @@ import android.widget.RemoteViews
 import com.uvindex.app.R
 import com.uvindex.app.SettingsActivity
 import com.uvindex.app.data.local.DataStoreManager
+import com.uvindex.app.data.repository.FetchIntent
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.ui.theme.UVColorHelper
 import com.uvindex.app.uv.isNoUvRisk
@@ -65,7 +66,7 @@ class SelfProtectionTimeWidget : AppWidgetProvider() {
                 val result = withContext(Dispatchers.IO) {
                     // Widgets use cache only (no location access needed)
                     // TickWorker has already cached fresh data
-                    repository.getCachedForecastForWidget()
+                    repository.getUVForecast(FetchIntent.CachedOnly)
                 }
 
                 result.fold(

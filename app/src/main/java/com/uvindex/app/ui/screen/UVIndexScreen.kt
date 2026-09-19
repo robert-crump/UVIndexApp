@@ -1,5 +1,6 @@
 package com.uvindex.app.ui.screen
 
+import com.uvindex.app.data.repository.FetchIntent
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -49,7 +50,7 @@ fun UVIndexScreen(viewModel: MainViewModel) {
 
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
-        onRefresh = { viewModel.loadForecast(forceRefresh = true) }
+        onRefresh = { viewModel.loadForecast(FetchIntent.Fresh) }
     )
 
     Scaffold(
@@ -131,7 +132,7 @@ fun UVIndexScreen(viewModel: MainViewModel) {
                     is UVUiState.Error -> {
                         ErrorContent(
                             message = state.message,
-                            onRetry = { viewModel.loadForecast(forceRefresh = false) }
+                            onRetry = { viewModel.loadForecast(FetchIntent.FreshIfStale) }
                         )
                     }
                 }
