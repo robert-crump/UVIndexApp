@@ -8,6 +8,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.uvindex.app.worker.TickWorker
 import java.time.LocalTime
 import java.time.ZonedDateTime
@@ -21,6 +22,10 @@ object BackgroundSchedule {
 
     const val TICK_WORK_NAME = "background_tick"
     const val TICK_MIDNIGHT_WORK_NAME = "background_tick_midnight"
+    const val IMMEDIATE_REFRESH_WORK_NAME = "background_immediate_refresh"
+
+    /** Input flag telling [TickWorker] to fetch fresh data regardless of the tick's usual intent. */
+    const val KEY_FORCE_FRESH = "force_fresh"
 
     // Work names of the retired hourly, widget and daily workers; cancelled so old installs drop them.
     private val LEGACY_WORK_NAMES = listOf(
@@ -50,6 +55,16 @@ object BackgroundSchedule {
         scheduleTick(workManager)
         scheduleMidnightTick(workManager)
         Log.d(TAG, "Schedules ensured")
+    }
+
+    /** Runs one tick now that always fetches fresh data; replaces a still-pending immediate refresh. */
+    fun enqueueImmediateRefresh(context: Context) {
+        val request = OneTimeWorkRequestBuilder<TickWorker>()
+            .setConstraints(constraints)
+            .setInputData(workDataOf(KEY_FORCE_FRESH to true))
+            .build()
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(IMMEDIATE_REFRESH_WORK_NAME, ExistingWorkPolicy.REPLACE, request)
     }
 
     private fun scheduleTick(workManager: WorkManager) {

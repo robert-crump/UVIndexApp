@@ -14,7 +14,11 @@ data class UVForecast(
     val airQuality: Double?,
     val lastUpdateTime: String?,
     val countryCode: String?
-)
+) {
+    /** Today's rows from the current hour onwards (derived, not serialized). */
+    val remainingHours: List<HourlyForecast>
+        get() = allDayForecasts.filter { it.hour >= currentHour.hour }
+}
 
 @Serializable
 data class HourlyForecast(

@@ -1,17 +1,7 @@
 package com.uvindex.app.widget
 
 import com.uvindex.app.data.model.UVForecast
-import com.uvindex.app.uv.UvRisk
 import com.uvindex.app.uv.classifyUvRisk
-
-/** Color/background category of a widget: a UV risk, or the neutral "no data" look. */
-sealed interface WidgetTone {
-    data class Risk(val risk: UvRisk) : WidgetTone
-    data object Neutral : WidgetTone
-}
-
-/** Which activity a widget tap opens. */
-enum class WidgetTapTarget { MainActivity }
 
 /** What the 1x1 current-UV widget should draw; the widget host turns this into RemoteViews. */
 data class CurrentUvBinding(
@@ -24,7 +14,7 @@ data class CurrentUvBinding(
 /** Pure binder: null [forecast] means "no cached data" and yields the error placeholder. */
 fun bindCurrentUv(forecast: UVForecast?): CurrentUvBinding {
     if (forecast == null) {
-        return CurrentUvBinding("-", "--:--", WidgetTone.Neutral, WidgetTapTarget.MainActivity)
+        return CurrentUvBinding(WIDGET_PLACEHOLDER, WIDGET_PLACEHOLDER, WidgetTone.Neutral, WidgetTapTarget.MainActivity)
     }
     val uv = forecast.currentHour.uvIndex.toInt()
     return CurrentUvBinding(

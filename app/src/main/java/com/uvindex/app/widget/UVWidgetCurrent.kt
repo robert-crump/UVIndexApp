@@ -4,7 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 
-/** 1x1 current-UV widget. Thin shell: [WidgetHost] loads the cache and applies [bindCurrentUv]. */
+/** 1x1 current-UV widget. Thin shell: [WidgetHost] loads the cache and applies the binding. */
 class UVWidgetCurrent : AppWidgetProvider() {
 
     override fun onUpdate(
@@ -12,6 +12,6 @@ class UVWidgetCurrent : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        WidgetHost.updateCurrentUvFromReceiver(context, goAsync())
+        WidgetHost.updateFromReceiver(context, WidgetKind.CurrentUv, goAsync())
     }
 }

@@ -4,10 +4,12 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.uvindex.app.data.repository.FetchIntent
 import com.uvindex.app.data.repository.WeatherRepository
 import com.uvindex.app.notification.NotificationDecider
 import com.uvindex.app.notification.NotificationDispatcher
 import com.uvindex.app.notification.SharedPreferencesNotificationHistoryStore
+import com.uvindex.app.schedule.BackgroundSchedule
 import com.uvindex.app.schedule.fetchIntentFor
 import com.uvindex.app.util.WidgetUpdateHelper
 import java.time.ZonedDateTime
@@ -26,7 +28,10 @@ class TickWorker(
         return try {
             val now = ZonedDateTime.now()
             val repository = WeatherRepository(applicationContext)
-            val forecastResult = repository.getUVForecast(fetchIntentFor(now.toLocalTime()))
+            val forecastResult = repository.getUVForecast(
+                if (inputData.getBoolean(BackgroundSchedule.KEY_FORCE_FRESH, false)) FetchIntent.Fresh
+                else fetchIntentFor(now.toLocalTime())
+            )
             val forecast = forecastResult.getOrNull()
             if (forecast == null) {
                 Log.e(TAG, "Failed to get forecast: ${forecastResult.exceptionOrNull()?.message}")

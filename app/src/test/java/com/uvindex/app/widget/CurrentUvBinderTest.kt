@@ -35,8 +35,8 @@ class CurrentUvBinderTest {
     @Test
     fun `null forecast yields error placeholder and neutral tone`() {
         val binding = bindCurrentUv(null)
-        assertEquals("-", binding.valueText)
-        assertEquals("--:--", binding.timeText)
+        assertEquals(WIDGET_PLACEHOLDER, binding.valueText)
+        assertEquals(WIDGET_PLACEHOLDER, binding.timeText)
         assertEquals(WidgetTone.Neutral, binding.tone)
     }
 
